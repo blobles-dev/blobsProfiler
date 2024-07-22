@@ -38,6 +38,13 @@ I would highly recommend against using this on a production/live server, especia
 - Cleanup
   - :x: Module-system (Code refactor)
 
+### Installation
+- Download the repository
+- Extract the folder to garrysmod/addons on your server
+- You should now have a `blobsProfiler-main` folder in your addons directory.
+  - You can rename this folder to `!blobsprofiler` to ensure the addon before others
+- Access the blobsProfiler menu with the console command `blobsprofiler`
+  
 ### Known issues
 - Function/File view source option fails for addon/custom gamemode paths
 
