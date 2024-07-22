@@ -29,13 +29,14 @@ I would highly recommend against using this on a production/live server, especia
 | Remote SQL Schema | :x: | :x: |
 | Remote SQL Data | :x: | :x: |
 | Remote SQL Execute | :x: | :x: |
+
 ##### Other
 - Settings
--- :x: Theme
--- :x: Module enable/disable
--- :x: Module usergroup permissions
+  - :x: Theme
+  - :x: Module enable/disable
+  - :x: Module usergroup permission
 - Cleanup
--- :x: Module-system (Refactoring)
+  - :x: Module-system (Code refactor)
 
 ### Known issues
 - Function/File view source option fails for addon/custom gamemode paths
