@@ -11,6 +11,8 @@ I suck at repo management, so bare with me.
 ### :exclamation: WARNING :exclamation:
 I would highly recommend against using this on a production/live server, especially in its current state.
 
+For now, the `blobsprofiler` command is currently locked away behind only a **clientside** usergroup == superadmin check.
+
 ### Features & To-Do
 ##### Modules
 | Module | Client | Server  |
@@ -38,18 +40,11 @@ I would highly recommend against using this on a production/live server, especia
 - Cleanup
   - :x: Module-system (Code refactor)
 
-### Installation
-- Download the repository
-- Extract the folder to garrysmod/addons on your server
-- You should now have a `blobsProfiler-main` folder in your addons directory.
-  - You can rename this folder to `!blobsprofiler` to ensure the addon before others
-- Access the blobsProfiler menu with the console command `blobsprofiler`
-  
 ### Known issues
 - Function/File view source option fails for addon/custom gamemode paths
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
--- Ingame Lua (and soon SQL) editors
+   - Ingame Lua (and soon SQL) editors
 - [Yogpod](https://github.com/Yogpod "Yogpod")
--- Posted a DTree script which sparked the whole idea behind this journey
+  - Posted a DTree script which sparked the whole idea behind this journey
