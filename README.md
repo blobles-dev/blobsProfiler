@@ -42,6 +42,8 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
 
 ### Known issues
 - Function/File view source option fails for addon/custom gamemode paths
+- Ace Editor shows some syntax errors with garrysmode specific lua syntax
+- - Need to add/write a custom language mode for glua
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
