@@ -50,3 +50,5 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
   - Posted a DTree script which sparked the whole idea behind this journey
 - [wyozi](https://github.com/wyozi/ "wyozi")
   - GLua mode for Ace Editor JS
+- [Phoenixf](https://github.com/phoen1xf/ "Phoenixf")
+  - Hosting the Ace Editor glua mode & being an awesome friend <3
