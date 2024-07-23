@@ -91,7 +91,7 @@ end
 -- Complete todo list
 -- Prevent blobsProfiler.Restrictions modification outside of this file
 
-blobsProfiler.RestrictAccess = function(rType, rValue, rMethod)
+blobsProfiler.RestrictAccess = function(rType, rValue, rMethod) -- Legacy?
     -- STRING rType = Global, Function, Hook, Concommand
     -- STRING rValue = "functionName (or path i.e myGlobal.functionName)"
     -- STRING or TABLE rMethod = Type of method to restrict (Read, Write, Delete) - * can be used in place of a table containing all methods
@@ -258,6 +258,7 @@ blobsProfiler.TableSort.SQLTableColSort = function(parentTable)
     return sortedParentTable
 end
 
+--[[
 blobsProfiler.RestrictAccess("Global", "AO.AO", "*")
 blobsProfiler.RestrictAccess("Global", "AO.AOCT", "*")
 blobsProfiler.RestrictAccess("Global", "AO.AOFS", "Delete")
@@ -265,4 +266,4 @@ blobsProfiler.RestrictAccess("Global", "AO.AOFS", "Delete")
 blobsProfiler.RestrictAccess("Global", "BlobsPartyConfig.AcceptReq", "*")
 blobsProfiler.RestrictAccess("Global", "BlobsPartyConfig.FirstColor", "*")
 
-blobsProfiler.RestrictAccess("Global", "angle_zero", "*")
+blobsProfiler.RestrictAccess("Global", "angle_zero", "*")]]
