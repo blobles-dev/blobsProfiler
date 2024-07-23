@@ -134,9 +134,10 @@ local function generateAceEditorPanel(parentPanel, content)
 			<body>
 				<div id="editor">]].. content ..[[</div>
 				<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.13/ace.js" type="text/javascript" charset="utf-8"></script>
+				<script src="https://cdn.hbn.gg/thirdparty/mode-glua.js" type="text/javascript"></script>
 				<script>
 					var editor = ace.edit("editor");
-					editor.session.setMode("ace/mode/lua");
+					editor.session.setMode("ace/mode/glua");
 					editor.setOptions({
 					enableBasicAutocompletion: true,
 					enableSnippets: true,
