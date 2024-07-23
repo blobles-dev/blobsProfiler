@@ -42,11 +42,11 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
 
 ### Known issues
 - Function/File view source option fails for addon/custom gamemode paths
-- Ace Editor shows some syntax errors with garrysmode specific lua syntax
-- - Need to add/write a custom language mode for glua
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
    - Ingame Lua (and soon SQL) editors
 - [Yogpod](https://github.com/Yogpod "Yogpod")
   - Posted a DTree script which sparked the whole idea behind this journey
+- [wyozi](https://github.com/wyozi/ "wyozi")
+  - GLua mode for Ace Editor JS
