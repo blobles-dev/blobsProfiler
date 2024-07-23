@@ -2,7 +2,7 @@
 A powerful task-manager style &amp; profiling addon for garrysmod
 
 ## Very early development (lacking a lot of features)
-
+Found an issue/bug or have an idea/suggestion? Use the [Issues](https://github.com/blobles-dev/blobsProfiler/issues "Issues") tab
 ### Overview
 This addon will be the one-stop shop for your development & test server needs.
 Early development access, feel free to contribute.
