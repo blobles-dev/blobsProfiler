@@ -41,7 +41,7 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
   - :x: Module-system (Code refactor)
 
 ### Known issues
-- Function/File view source option fails for addon/custom gamemode paths
+- Probably something, just nothing obvious
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
