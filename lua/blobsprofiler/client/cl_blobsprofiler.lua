@@ -309,40 +309,45 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 	["function"] = {
 		{
 			name = "View source",
-			func = function(ref, node)
-				local debugInfo = debug.getinfo(ref.value, "S")
-				if not string.EndsWith(debugInfo.short_src, ".lua") then
-					Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
-					return
-				end
+			func = function(ref, node, luaState)
+				if luaState == "Client" then
+					local debugInfo = debug.getinfo(ref.value, "S")
+					if not string.EndsWith(debugInfo.short_src, ".lua") then
+						Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+						return
+					end
 
-				net.Start("blobsProfiler:requestSource")
-					net.WriteString(debugInfo.short_src)
-					net.WriteUInt(debugInfo.linedefined, 16)
-					net.WriteUInt(debugInfo.lastlinedefined, 16)
-				net.SendToServer()
+					net.Start("blobsProfiler:requestSource")
+						net.WriteString(debugInfo.short_src)
+						net.WriteUInt(debugInfo.linedefined, 16)
+						net.WriteUInt(debugInfo.lastlinedefined, 16)
+					net.SendToServer()
+				elseif luaState == "Server" then
+					PrintTable(ref)
+					net.Start("blobsProfiler:requestSource")
+						net.WriteString(ref.value.source)
+						net.WriteUInt(ref.value.linedefined, 16)
+						net.WriteUInt(ref.value.lastlinedefined, 16)
+					net.SendToServer()
+				end
 			end,
 			icon = "icon16/magnifier.png"
 		},
 		{
 			name = "View properties",
-			func = function(ref, node)
-
-				local debugInfo = debug.getinfo(ref.value)
+			func = function(ref, node, luaState)
 				local propertiesData = {}
-				propertiesData["debug.getinfo()"] = debugInfo
+
+				if luaState == "Client" then
+					local debugInfo = debug.getinfo(ref.value)
+					propertiesData["debug.getinfo()"] = debugInfo
+				elseif luaState == "Server" then
+					propertiesData["debug.getinfo()"] = ref.value
+				end
+				
 				local popupView = viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
 			end,
 			icon = "icon16/magnifier.png"
-		},
-		{
-			name = "debug.getinfo(func): Print",
-			func = function(ref, node)
-				PrintTable(debug.getinfo(ref.value))
-				print(node.GlobalPath)
-			end,
-			icon = "icon16/script_code.png",
-			requiredAccess = "Read"
 		}
 	}
 }
@@ -637,6 +642,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	local nodeKey = nodeData.key
 	local nodeValue = nodeData.value
 	local dataType = type(nodeValue)
+	local iconOverride = nil
 
 	local childNode
 
@@ -647,6 +653,15 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		local specialFolderPanel = blobsProfiler.Menu.TypeFolders[dataType]
 		if specialFolderPanel && type(specialFolderPanel) == "Panel" then
 			useParent = specialFolderPanel
+		end
+	end
+
+	if luaState == "Server" then
+		if varType == "Hooks" && type(nodeValue) == "table" then
+			if nodeValue.func then
+				dataType = "function"
+				iconOverride = "icon16/script_code.png"
+			end
 		end
 	end
 
@@ -685,7 +700,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 				childNode.LazyLoaded = true
 			end
 
-			local dataType = type(nodeValue)
 			if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then				
 				for k,v in ipairs(blobsProfiler.Menu.RCFunctions[varType][dataType]) do
 					if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
@@ -806,7 +820,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 							end
 							if useNameSM then
 								local rcChildP = rcChild:AddOption(useNameSM, function()
-									rcMS.func(nodeData, childNode)
+									rcMS.func(nodeData, childNode, luaState)
 									if rcMS.onLoad then
 										rcMS.onLoad(nodeData, childNode)
 									end
@@ -821,7 +835,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 						end
 					else
 						local rcOption = RCMenu:AddOption(useName, function()
-							rcM.func(nodeData, childNode)
+							rcM.func(nodeData, childNode, luaState)
 							if rcM.onLoad then
 								rcM.onLoad(nodeData, childNode)
 							end
@@ -878,6 +892,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	childNode.DoClick = function() -- hacky asf
 		-- Find the first available right click option and run the func method
+		-- Todo add check for how long ago it was clicked
 		if selectedNode and selectedNode == childNode then
 			local dataType = type(nodeValue)
 			if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then
@@ -889,7 +904,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 						continue
 					end
 	
-					rcM.func(nodeData, childNode) -- this should be first one they have access to
+					rcM.func(nodeData, childNode, luaState) -- this should be first one they have access to
 					break
 				end
 			end
@@ -898,6 +913,12 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			selectedNode = childNode
 		end
 	end
+
+	if iconOverride then
+		childNode.Icon:SetImage(iconOverride)
+	end
+
+	childNode.varType = varType
 
 	return childNode
 end
@@ -1148,6 +1169,10 @@ local function profileLog(realm, event)
 	print(event, luaCallInfo.name, luaCallInfo.func, luaCallInfo.source)
 end
 
+blobsProfiler.Tabs = {}
+blobsProfiler.Tabs.Client = {}
+blobsProfiler.Tabs.Server = {}
+
 concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	if not blobsProfiler.CanAccess(LocalPlayer(), "OpenMenu") then return end -- TODO: better more modular permissions via settings
 
@@ -1241,6 +1266,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		if blobsProfiler.RequestData.Server[pnlNew:GetText()] and not blobsProfiler.Server[pnlNew:GetText()] then blobsProfiler.RequestData.Server[pnlNew:GetText()]() end
 	end
 
 	tabMenu.OnActiveTabChanged = function(s, pnlOld, pnlNew)
@@ -1265,19 +1291,23 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		local tabLua = vgui.Create("DPropertySheet", statePanel)
 		statePanel:AddSheet( "Lua", tabLua, "icon16/world.png" )
 		buildLuaTab(luaState, tabLua)
+		blobsProfiler.Tabs[luaState].Lua = tabLua
 		
 		local tabHooks = vgui.Create( "DPanel", statePanel )
 		statePanel:AddSheet( "Hooks", tabHooks, "icon16/brick_add.png" )
 		buildDTree(luaState, tabHooks, "Hooks")
+		blobsProfiler.Tabs[luaState].Hooks = tabHooks
 
 		local tabConcommands = vgui.Create( "DPanel", statePanel )
 		statePanel:AddSheet( "ConCommands", tabConcommands, "icon16/application_xp_terminal.png" )
 		buildDTree(luaState, tabConcommands, "ConCommands")
+		blobsProfiler.Tabs[luaState].ConCommands = tabConcommands
 
 		blobsProfiler.ScanGLoadedFiles()
 		local tabFiles = vgui.Create( "DPanel", statePanel )
 		statePanel:AddSheet( "Files", tabFiles, "icon16/folder_page.png" )
 		buildDTree(luaState, tabFiles, "Files")
+		blobsProfiler.Tabs[luaState].Files = tabFiles
 
 		local fileRescan = vgui.Create("DButton", tabFiles)
 		fileRescan:Dock(BOTTOM)
@@ -1298,15 +1328,44 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		local tabNetwork = vgui.Create( "DPanel", statePanel )
 		statePanel:AddSheet( "Network", tabNetwork, "icon16/drive_network.png" )
 		buildDTree(luaState, tabNetwork, "Network")
+		blobsProfiler.Tabs[luaState].Network = tabNetwork
 
 		local tabTimers = vgui.Create( "DPanel", statePanel )
 		statePanel:AddSheet( "Timers", tabTimers, "icon16/clock.png" )
 		buildDTree(luaState, tabTimers, "Timers")
+		blobsProfiler.Tabs[luaState].Timers = tabTimers
 
 		local tabSQL = vgui.Create( "DPropertySheet", statePanel )
 		statePanel:AddSheet( "SQLite", tabSQL, "icon16/database.png" )
 		buildSQLTab(luaState, tabSQL)
+		blobsProfiler.Tabs[luaState].SQLite = tabSQL
 	end
 
 	tabMenu:OnActiveTabChanged(nil, tabMenu:GetActiveTab()) -- lol
+end)
+
+--[[net.Receive("blobsProfiler:requestData", function()
+	if not blobsProfiler.CanAccess(LocalPlayer(), "serverData") then return end
+	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData NW")
+	local dataModule = net.ReadString()
+
+	blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. dataModule)
+
+	if dataModule == "Hooks" then
+		blobsProfiler.Server.Hooks = net.ReadTable()
+
+		buildDTree("Server", blobsProfiler.Tabs.Server.Hooks)
+	end
+end)]]
+
+netstream.Hook("blobsProfiler:requestData", function(dataModule, dataTable)
+	if not blobsProfiler.CanAccess(LocalPlayer(), "serverData") then return end
+
+	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData module: ".. dataModule)
+
+	if dataModule == "Hooks" then
+		blobsProfiler.Server.Hooks = dataTable
+
+		buildDTree("Server", blobsProfiler.Tabs.Server.Hooks, "Hooks")
+	end
 end)

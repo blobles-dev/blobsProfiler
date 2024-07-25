@@ -82,6 +82,16 @@ blobsProfiler.FileList = {
 		SV = true,
 	},
 	{
+		File = "shared/sh_pon.lua",
+		CL = true,
+		SV = true,
+	},
+	{
+		File = "shared/sh_netstream.lua",
+		CL = true,
+		SV = true,
+	},
+	{
 		File = "client/cl_blobsprofiler.lua",
 		CL = true
 	},

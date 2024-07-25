@@ -333,6 +333,49 @@ blobsProfiler.TableSort.SQLTableColSort = function(parentTable)
     return sortedParentTable
 end
 
+blobsProfiler.RequestData = {}
+blobsProfiler.RequestData.Server = {}
+
+--[[
+Lua
+Hooks
+ConCommands
+Files
+Network
+Timers
+SQLite
+]]
+
+blobsProfiler.RequestData.Server["Lua"] = function()
+
+end
+
+blobsProfiler.RequestData.Server["Hooks"] = function()
+    net.Start("blobsProfiler:requestData")
+        net.WriteString("Hooks")
+    net.SendToServer()
+end
+
+blobsProfiler.RequestData.Server["ConCommands"] = function()
+
+end
+
+blobsProfiler.RequestData.Server["Files"] = function()
+
+end
+
+blobsProfiler.RequestData.Server["Network"] = function()
+
+end
+
+blobsProfiler.RequestData.Server["Timers"] = function()
+
+end
+
+blobsProfiler.RequestData.Server["SQLite"] = function()
+
+end
+
 --[[
 blobsProfiler.RestrictAccess("Global", "AO.AO", "*")
 blobsProfiler.RestrictAccess("Global", "AO.AOCT", "*")

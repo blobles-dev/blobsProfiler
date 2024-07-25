@@ -19,7 +19,7 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
 | ------------ | ------------ | ------------ |
 | _G explorer | :white_check_mark: | :x: |
 | Lua execute | :white_check_mark: | :x: |
-| Hooks | :white_check_mark: | :x: |
+| Hooks | :white_check_mark: | :white_check_mark: |
 | ConCommands  | :white_check_mark: | :x: |
 | Convar | :x: | :x: |
 | Files | :white_check_mark: | :x: |
