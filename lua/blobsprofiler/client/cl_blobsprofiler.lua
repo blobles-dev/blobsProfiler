@@ -166,6 +166,56 @@ local function generateAceEditorPanel(parentPanel, content)
 	return dhtmlPanel
 end
 
+local function popupSourceView(sourceContent, frameTitle)
+	local sourceFrame = vgui.Create("DFrame")
+	sourceFrame:SetSize(500,500)
+	sourceFrame:SetTitle(frameTitle or "View source")
+	sourceFrame:Center()
+	sourceFrame:MakePopup()
+
+	local sourcePanel = generateAceEditorPanel(sourceFrame, sourceContent)
+	sourcePanel:Dock(FILL)
+end
+
+local receivedSource = {}
+
+net.Receive("blobsProfiler:sendSourceChunk", function()
+    local requestId = net.ReadString()
+    local startPos = net.ReadUInt(32)
+    local chunk = net.ReadString()
+
+    if not receivedSource[requestId] then
+        receivedSource[requestId] = {
+            receivedSource = {},
+            chunksReceived = 0
+        }
+    end
+
+    local request = receivedSource[requestId]
+    request.receivedSource[startPos] = chunk
+    request.chunksReceived = request.chunksReceived + 1
+
+    local combinedSource = ""
+    local allChunksReceived = true
+    local chunkSize = 30000
+
+    for i = 1, request.chunksReceived * chunkSize, chunkSize do
+        if request.receivedSource[i] then
+            combinedSource = combinedSource .. request.receivedSource[i]
+        else
+            allChunksReceived = false
+            break
+        end
+    end
+
+    if allChunksReceived then
+		local splitRequest = string.Explode(":", requestId)
+		popupSourceView(combinedSource, splitRequest[1])
+
+        receivedSource[requestId] = nil  -- Clean up the request data
+    end
+end)
+
 local function stripFirstDirectoryFromPath(filePath) -- why does god hate me
 	local newPath = filePath:match("^.-/(.*)")
 	return newPath or filePath 
@@ -206,45 +256,6 @@ local function grabSourceFromFile(filePath, lineStart, lineEnd)
     findFile:Close()
 
     return table.concat(content, "\n")
-end
-
-local function viewSourcePopup(funcOrPath)
-	local sourceFrame = vgui.Create("DFrame")
-	sourceFrame:SetSize(500,500)
-	sourceFrame:Center()
-	sourceFrame:MakePopup()
-
-	local sourceContent = ""
-
-	if funcOrPath then
-		if type(funcOrPath) == "function" then
-			local debugInfo = debug.getinfo(funcOrPath, "S")
-			if not string.EndsWith(debugInfo.short_src, ".lua") then
-				Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
-				sourceFrame:Remove()
-				sourceFrame = nil
-				return
-			end
-			sourceContent = grabSourceFromFile(debugInfo.short_src, debugInfo.linedefined, debugInfo.lastlinedefined)
-			if not sourceContent then
-				local pathRemFirstDir = stripFirstDirectoryFromPath(debugInfo.short_src) -- why do i have to remove the first directory.. clearly i dont understand gmods virtual filesystem
-				sourceContent = grabSourceFromFile(pathRemFirstDir,  debugInfo.linedefined, debugInfo.lastlinedefined)
-			end
-		elseif type(funcOrPath) == "string" then
-			local locations = {"GAME", "LUA", "MOD"}
-			local pathRemFirstDir = stripFirstDirectoryFromPath(funcOrPath)
-			for _, loc in ipairs(locations) do
-				sourceContent = file.Read(funcOrPath, loc)
-				if sourceContent then break end
-
-				sourceContent = file.Read(pathRemFirstDir, loc)
-				if sourceContent then break end
-			end
-		end
-
-		local sourcePanel = generateAceEditorPanel(sourceFrame, sourceContent)
-		sourcePanel:Dock(FILL)
-	end
 end
 
 blobsProfiler.Menu.RCFunctions = {}
@@ -299,7 +310,17 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 		{
 			name = "View source",
 			func = function(ref, node)
-				viewSourcePopup(ref.value)
+				local debugInfo = debug.getinfo(ref.value, "S")
+				if not string.EndsWith(debugInfo.short_src, ".lua") then
+					Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+					return
+				end
+
+				net.Start("blobsProfiler:requestSource")
+					net.WriteString(debugInfo.short_src)
+					net.WriteUInt(debugInfo.linedefined, 16)
+					net.WriteUInt(debugInfo.lastlinedefined, 16)
+				net.SendToServer()
 			end,
 			icon = "icon16/magnifier.png"
 		},
@@ -384,7 +405,9 @@ blobsProfiler.Menu.RCFunctions["Files"] = {
 				
 				apparentParentDir(node)
 
-				viewSourcePopup(path)
+				net.Start("blobsProfiler:requestSource")
+					net.WriteString(path)
+				net.SendToServer()
 			end,
 			icon = "icon16/script_code.png"
 		},
@@ -1126,7 +1149,7 @@ local function profileLog(realm, event)
 end
 
 concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
-	if LocalPlayer():GetUserGroup() ~= "superadmin" then return end -- TODO: better more modular permissions via settings
+	if not blobsProfiler.CanAccess(LocalPlayer(), "OpenMenu") then return end -- TODO: better more modular permissions via settings
 
 	if argStr == "reloadclient" then
 		if blobsProfiler.Menu.MenuFrame or IsValid(blobsProfiler.Menu.MenuFrame) then

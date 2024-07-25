@@ -246,6 +246,10 @@ blobsProfiler.RestrictAccess = function(rType, rValue, rMethod) -- Legacy?
     return true
 end
 
+blobsProfiler.CanAccess = function(cPly, cArea, cRealm)
+    return cPly:IsUserGroup("superadmin") -- TODO
+end
+
 blobsProfiler.GetDataTableForRealm = function(luaState, dataType, forceRefresh)
     if luaState ~= "Client" and luaState ~= "Server" then return {} end
 
