@@ -7,11 +7,12 @@ Found an issue/bug or have an idea/suggestion? Use the [Issues](https://github.c
 This addon will be the one-stop shop for your development & test server needs.
 Early development access, feel free to contribute.
 I suck at repo management, so bare with me.
+Open the menu with `blobsprofiler`
 
 ### :exclamation: WARNING :exclamation:
 I would highly recommend against using this on a production/live server, especially in its current state.
+For now, the all modules are currently locked away behind only a usergroup == superadmin check (CL for client side area of modules, and SV checks for server side area of modules)
 
-For now, the `blobsprofiler` command is currently locked away behind only a **clientside** usergroup == superadmin check.
 
 ### Features & To-Do
 ##### Modules
@@ -38,10 +39,10 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
   - :x: Module enable/disable
   - :x: Module usergroup permission
 - Cleanup
-  - :wave_dash: Module-system (Code refactor)
+  - :wavy_dash: Module-system (Code refactor)
 
 ### Known issues
-- Server side globals will not fully transfer due to some type encoding issues, for now it's limited to a few types.
+- SV globals will not fully transfer or fail completely due to some type encoding issues, for now it's limited to a few types.
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
