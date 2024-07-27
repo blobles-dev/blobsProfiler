@@ -86,28 +86,17 @@ end
 
 blobsProfiler.LoadFiles()
 
-blobsProfiler.LoadModule = function(ModuleName)
-	local moduleName = string.lower(ModuleName)
-	if SERVER then
-		AddCSLuaFile("blobsprofiler/shared/modules/bp_" .. moduleName .. ".lua")
+blobsProfiler.LoadModules = function()
+	local foundModuleFiles = file.Find("blobsprofiler/shared/modules/bp_*.lua", "LUA")
+
+	for _, moduleLuaFile in ipairs(foundModuleFiles) do
+		if SERVER then
+			AddCSLuaFile("blobsprofiler/shared/modules/"..moduleLuaFile)
+            blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module AddCSLuaFile: ".. moduleLuaFile)
+		end
+		include("blobsprofiler/shared/modules/"..moduleLuaFile)
+        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module include(): ".. moduleLuaFile)
 	end
-	include("blobsprofiler/shared/modules/bp_" .. moduleName .. ".lua")
 end
 
---[[
-Lua
-Hooks
-ConCommands
-Files
-Network
-Timers
-SQLite
-]]
-
-blobsProfiler.LoadModule("Lua")
-blobsProfiler.LoadModule("Hooks")
-blobsProfiler.LoadModule("ConCommands")
-blobsProfiler.LoadModule("Files")
-blobsProfiler.LoadModule("Network")
-blobsProfiler.LoadModule("Timers")
-blobsProfiler.LoadModule("SQLite")
+blobsProfiler.LoadModules()
