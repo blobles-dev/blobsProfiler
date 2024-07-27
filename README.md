@@ -27,7 +27,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
 | Network (Receivers) | :white_check_mark: | :white_check_mark: |
 | Timers | :white_check_mark: | :white_check_mark: |
 | Profiling | :x: | :x: |
-| SQLite Schema | :white_check_mark: | :x: |
+| SQLite Schema | :white_check_mark: | :white_check_mark: |
 | SQLite Data | :white_check_mark: | :x: |
 | SQLite Execute | :x: | :x: |
 | Remote SQL Schema | :x: | :x: |

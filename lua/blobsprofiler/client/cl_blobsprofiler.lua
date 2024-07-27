@@ -525,7 +525,7 @@ blobsProfiler.Menu.RCFunctions["Timers"] = {
 		}
 	}
 }
-blobsProfiler.Menu.RCFunctions["SQL_Schema"] = {
+blobsProfiler.Menu.RCFunctions["SQLite.Schema"] = { -- TODO: make submodules work with this
 	["table"] = {
 		{
 			name = "SQL Create statement",
@@ -549,9 +549,9 @@ blobsProfiler.Menu.RCFunctions["SQL_Schema"] = {
 			},
 			icon = "icon16/table_lightning.png",
 			condition = function(ref, node, realm)
-				if not blobsProfiler[realm].SQLite.SchemaTables then return false end
+				if not blobsProfiler[realm].SQLite.Schema.Tables then return false end
 
-				return blobsProfiler[realm].SQLite.SchemaTables[ref.key]
+				return blobsProfiler[realm].SQLite.Schema.Tables[ref.key]
 			end
 		}
 		--[[{
@@ -599,6 +599,7 @@ for k,v in ipairs(blobsProfiler.Menu.GlobalTypesToCondense) do
 	blobsProfiler.Menu.TypeFolders.Client[v.type] = true
 	blobsProfiler.Menu.TypeFolders.Server[v.type] = true
 end
+
 local function nodeEntriesTableKeySort(a, b)
 	local aIsTable = type(a.value) == 'table'
 	local bIsTable = type(b.value) == 'table'
@@ -1130,26 +1131,6 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	local tabSettings = vgui.Create("DPropertySheet", tabMenu)
 	tabMenu:AddSheet("Settings", tabSettings, "icon16/cog.png")
 
-	tabClient.OnActiveTabChanged = function(s, pnlOld, pnlNew)
-		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
-		if not blobsProfiler.Client[pnlNew:GetText()] then
-			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
-				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Client")
-			end
-		end
-	end
-
-	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
-		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
-		if not blobsProfiler.Server[pnlNew:GetText()] then
-			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
-				blobsProfiler.Modules[pnlNew:GetText()].retrievingData = true
-				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Server")
-			end
-		end
-	end
-
-
 	local luaStates = {
 		Client = tabClient,
 		Server = tabServer
@@ -1335,6 +1316,31 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
 			firstSubModule[subActiveTab:GetText()].data.retrievingData = true
 			firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
+		end
+	end
+
+	tabClient.OnActiveTabChanged = function(s, pnlOld, pnlNew)
+		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		if not blobsProfiler.Client[pnlNew:GetText()] then
+			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
+				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Client")
+			end
+		end
+	end
+
+	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
+		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		if not blobsProfiler.Server[pnlNew:GetText()] then
+			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
+				blobsProfiler.Modules[pnlNew:GetText()].retrievingData = true
+				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Server")
+			end
+		end
+		
+		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
+			if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
+			firstSubModule[pnlNew:GetText()].data.retrievingData = true
+			firstSubModule[pnlNew:GetText()].data:UpdateRealmData("Server")
 		end
 	end
 

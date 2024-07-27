@@ -50,7 +50,7 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
         end
     end,
     PrepServerData = function()
-
+        return buildSQLiteSchemaTable()
     end,
     PreloadClient = true,
     PreloadServer = false,
@@ -128,7 +128,7 @@ blobsProfiler.RegisterSubModule("SQLite", "Data", {
         blobsProfiler[luaState].SQLite = blobsProfiler[luaState].SQLite or {}
         blobsProfiler[luaState].SQLite.Data = blobsProfiler[luaState].SQLite.Data or {}
 
-        blobsProfiler[luaState].SQLite.Schema = blobsProfiler[luaState].SQLite.Schema or {}
+        if not blobsProfiler[luaState].SQLite.Schema then return end
 
         local schemaDataTable = blobsProfiler[luaState].SQLite.Schema
 
