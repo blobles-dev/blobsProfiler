@@ -1396,7 +1396,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	tabMenu:OnActiveTabChanged(nil, tabMenu:GetActiveTab()) -- lol
 end)
 
-netstream.Hook("blobsProfiler:requestData", function(rawModuleName, dataTable)
+netstream.Hook("blobsProfiler:requestData", function(rawModuleName, rawDataTable)
 	local moduleSplit = string.Explode(".", rawModuleName) -- [1] is parent, [2] is submodule
     local moduleName = moduleSplit[1]
     local subModule = nil
@@ -1407,6 +1407,14 @@ netstream.Hook("blobsProfiler:requestData", function(rawModuleName, dataTable)
         subModule = moduleSplit[2]		
 	end
 
+	local decompressedData = util.Decompress(rawDataTable)
+	if not decompressedData then
+		blobsProfiler.Log(blobsProfiler.L_ERROR, "Failed to decompress SV data for: "..rawModuleName)
+	end
+	local dataTable = util.JSONToTable(decompressedData)
+	if not dataTable then
+		blobsProfiler.Log(blobsProfiler.L_ERROR, "Failed to deserialise SV data for: "..rawModuleName)
+	end
 	
 	if not subModule then
 		if blobsProfiler.Modules[moduleName] then

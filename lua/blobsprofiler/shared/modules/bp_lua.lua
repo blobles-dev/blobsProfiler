@@ -7,35 +7,37 @@ blobsProfiler.RegisterModule("Lua", {
     OrderPriority = 1,
 })
 
-local validTypes = {
+--[[local validTypes = {
     ["string"] = true,
     ["number"] = true,
     ["boolean"] = true,
     --["Panel"] = true, -- the function is only used for serverside, which this will never exist on anyway
     ["function"] = true,
-    --["Entity"] = true,
-    --["Vector"] = true,
-    --["Angle"] = true,
-    --["table"] = true,
-    --["Weapon"] = true,
-    --["Player"] = true
-}
+    ["Entity"] = true,
+    ["Vector"] = true,
+    ["Angle"] = true,
+    ["table"] = true,
+    ["Weapon"] = true,
+    ["Player"] = true
+}]]
+-- https://gist.github.com/Yogpod/94b8ffa6ed9222e29961d0288f2b969c
 
 blobsProfiler.serialiseGlobals = function()
     local function copyTable(orig, seen)
         seen = seen or {}
         if seen[orig] then
-            return seen[orig]
+            return nil
+            --return seen[orig]
         end
 
         local copy = {}
         seen[orig] = copy
 
         for k, v in pairs(orig) do
-            local keyIsValid = type(k) == "string" or type(k) == "number" or type(k) == "boolean"
+            --local keyIsValid = type(k) == "string" or type(k) == "number" or type(k) == "boolean"
             local value
 
-            if validTypes[type(v)] and keyIsValid then
+            --if validTypes[type(v)] and keyIsValid then
                 if type(v) == 'table' then
                     value = copyTable(v, seen)
                 elseif type(v) == 'function' then
@@ -52,11 +54,11 @@ blobsProfiler.serialiseGlobals = function()
                     value = v
                 end
                 copy[k] = value
-            else
+            --else
                 -- This line can get spammy
                 -- pOn can only encode certain types, so we need to whitelist (for now)
                 -- print("blobsProfiler.serialiseGlobals: Invalid type for key:", k, "value:", v, "type:", type(v))
-            end
+            --end
         end
 
         return copy

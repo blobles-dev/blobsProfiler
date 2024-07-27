@@ -100,6 +100,7 @@ net.Receive("blobsProfiler:requestData", function(l, ply)
         dataTbl = {}
     end
 
+    dataTbl = util.Compress(util.TableToJSON(dataTbl))
     netstream.Heavy(ply, "blobsProfiler:requestData", rawDataModule, dataTbl)
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawDataModule .." data sent to client!")
 end)
