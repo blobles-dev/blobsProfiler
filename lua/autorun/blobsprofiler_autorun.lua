@@ -7,6 +7,8 @@ blobsProfiler.Server = blobsProfiler.Server or {}
 blobsProfiler.Client.Profile = blobsProfiler.Client.Profile or {}
 blobsProfiler.Server.Profile = blobsProfiler.Server.Profile or {}
 
+blobsProfiler.svDataChunkSize = 15000
+
 local realmDataTable = {}
 
 if SERVER then

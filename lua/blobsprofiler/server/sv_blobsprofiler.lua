@@ -63,6 +63,50 @@ net.Receive("blobsProfiler:requestSource", function(l, ply)
     SendChunkedString(ply, requestID, combinedSource)
 end)
 
+local transmissionStates = {}
+
+local function sendDataToClient(ply, moduleName, dataTbl)
+    if transmissionStates[ply] and transmissionStates[ply][moduleName] then
+        return
+    end
+
+    local data = util.Compress(util.TableToJSON(dataTbl))
+    local totalChunks = math.ceil(#data / blobsProfiler.svDataChunkSize)
+
+    transmissionStates[ply] = transmissionStates[ply] or {}
+    transmissionStates[ply][moduleName] = {
+        data = data,
+        totalChunks = totalChunks,
+        currentChunk = 1
+    }
+
+    local function sendNextChunk()
+        if not IsValid(ply) then return end
+        local state = transmissionStates[ply][moduleName]
+        if not state then return end
+
+        local startIdx = (state.currentChunk - 1) * blobsProfiler.svDataChunkSize + 1
+        local endIdx = math.min(startIdx + blobsProfiler.svDataChunkSize - 1, #state.data)
+        local chunk = string.sub(state.data, startIdx, endIdx)
+
+        net.Start("blobsProfiler:requestData")
+            net.WriteString(moduleName)
+            net.WriteUInt(state.totalChunks, 16)
+            net.WriteUInt(state.currentChunk, 16)
+            net.WriteData(chunk, #chunk)
+        net.Send(ply)
+
+        state.currentChunk = state.currentChunk + 1
+        if state.currentChunk > state.totalChunks then
+            transmissionStates[ply][moduleName] = nil
+        else
+            timer.Simple(0.1, sendNextChunk)
+        end
+    end
+
+    sendNextChunk()
+end
+
 net.Receive("blobsProfiler:requestData", function(l, ply)
     if not blobsProfiler.CanAccess(ply, "serverData") then return end
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData NW")
@@ -100,7 +144,9 @@ net.Receive("blobsProfiler:requestData", function(l, ply)
         dataTbl = {}
     end
 
-    dataTbl = util.Compress(util.TableToJSON(dataTbl))
-    netstream.Heavy(ply, "blobsProfiler:requestData", rawDataModule, dataTbl)
+    --dataTbl = util.Compress(util.TableToJSON(dataTbl))
+    --netstream.Heavy(ply, "blobsProfiler:requestData", rawDataModule, dataTbl)
+    sendDataToClient(ply, rawDataModule, dataTbl)
+
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawDataModule .." data sent to client!")
 end)

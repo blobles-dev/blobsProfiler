@@ -607,7 +607,7 @@ local function nodeEntriesTableKeySort(a, b)
 	elseif !aIsTable && bIsTable then
 		return false
 	else
-		return a.key < b.key
+		return tostring(a.key) < tostring(b.key) -- Just in case.. (It's here for a reason :))
 	end
 end
 
@@ -1313,10 +1313,20 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 						end
 					end
 					subModuleTab.PaintOver = function(s,w,h)
-						if subModuleData.retrievingData then
+						if luaState == "Server" and subModuleData.retrievingData then
 							surface.SetDrawColor(50,50,50,100)
 							surface.DrawRect(0,0,w,h)
 							draw.SimpleTextOutlined("Retrieving data..", "HudDefault", w/2, h/2, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+						
+							local subModuleFullName = moduleName .. "." .. subModuleName
+							if blobsProfiler.chunkModuleData[subModuleFullName] and blobsProfiler.chunkModuleData[subModuleFullName].receivedChunks then
+								local recvChunks = #blobsProfiler.chunkModuleData[subModuleFullName].receivedChunks
+								local totChunks = blobsProfiler.chunkModuleData[subModuleFullName].totalChunks
+		
+								if recChunks ~= totChunks then
+									draw.SimpleTextOutlined(recvChunks.. "/" .. totChunks, "HudDefault", w/2, h/2+15, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+								end
+							end
 						end
 					end
 
@@ -1341,10 +1351,19 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			end
 
 			moduleTab.PaintOver = function(s,w,h)
-				if moduleData.retrievingData then
+				if luaState == "Server" and moduleData.retrievingData then
 					surface.SetDrawColor(50,50,50,100)
 					surface.DrawRect(0,0,w,h)
-					draw.SimpleTextOutlined("Retrieving data..", "HudDefault", w/2, h/2, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+					draw.SimpleTextOutlined("Retrieving data..", "HudDefault", w/2, h/2-15, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+					
+					if blobsProfiler.chunkModuleData[moduleName] and blobsProfiler.chunkModuleData[moduleName].receivedChunks then
+						local recvChunks = #blobsProfiler.chunkModuleData[moduleName].receivedChunks
+						local totChunks = blobsProfiler.chunkModuleData[moduleName].totalChunks
+
+						if recChunks ~= totChunks then
+							draw.SimpleTextOutlined(recvChunks.. "/" .. totChunks, "HudDefault", w/2, h/2+15, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+						end
+					end
 				end
 			end
 
@@ -1396,7 +1415,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	tabMenu:OnActiveTabChanged(nil, tabMenu:GetActiveTab()) -- lol
 end)
 
-netstream.Hook("blobsProfiler:requestData", function(rawModuleName, rawDataTable)
+local function handleSVDataUpdate(rawModuleName, dataTable)
 	local moduleSplit = string.Explode(".", rawModuleName) -- [1] is parent, [2] is submodule
     local moduleName = moduleSplit[1]
     local subModule = nil
@@ -1405,15 +1424,6 @@ netstream.Hook("blobsProfiler:requestData", function(rawModuleName, rawDataTable
 
 	if #moduleSplit == 2 then -- ew
         subModule = moduleSplit[2]		
-	end
-
-	local decompressedData = util.Decompress(rawDataTable)
-	if not decompressedData then
-		blobsProfiler.Log(blobsProfiler.L_ERROR, "Failed to decompress SV data for: "..rawModuleName)
-	end
-	local dataTable = util.JSONToTable(decompressedData)
-	if not dataTable then
-		blobsProfiler.Log(blobsProfiler.L_ERROR, "Failed to deserialise SV data for: "..rawModuleName)
 	end
 	
 	if not subModule then
@@ -1437,6 +1447,35 @@ netstream.Hook("blobsProfiler:requestData", function(rawModuleName, rawDataTable
 			end
 		end
 	end
+end
+
+blobsProfiler.chunkModuleData = {}
+
+net.Receive("blobsProfiler:requestData", function()
+    local moduleName = net.ReadString()
+    local totalChunks = net.ReadUInt(16)
+    local currentChunk = net.ReadUInt(16)
+    local chunkData = net.ReadData(blobsProfiler.svDataChunkSize)
+
+    if not blobsProfiler.chunkModuleData[moduleName] then
+        blobsProfiler.chunkModuleData[moduleName] = {
+            totalChunks = totalChunks,
+            receivedChunks = {},
+        }
+    end
+
+    if not blobsProfiler.chunkModuleData[moduleName].receivedChunks then
+        blobsProfiler.chunkModuleData[moduleName].receivedChunks = {}
+    end
+
+    table.insert(blobsProfiler.chunkModuleData[moduleName].receivedChunks, chunkData)
+
+    if #blobsProfiler.chunkModuleData[moduleName].receivedChunks == totalChunks then
+        local fullData = table.concat(blobsProfiler.chunkModuleData[moduleName].receivedChunks)
+        blobsProfiler.chunkModuleData[moduleName] = util.JSONToTable(util.Decompress(fullData))
+
+        handleSVDataUpdate(moduleName, blobsProfiler.chunkModuleData[moduleName])
+    end
 end)
 
 blobsProfiler.buildDTree = buildDTree
