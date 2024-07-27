@@ -24,7 +24,8 @@ For now, the all modules are currently locked away behind only a usergroup == su
 | ConCommands  | :white_check_mark: | :white_check_mark: |
 | Convar | :x: | :x: |
 | Files | :white_check_mark: | :white_check_mark: |
-|  Network (Receivers)  | :white_check_mark: | :white_check_mark: |
+| Network (Receivers) | :white_check_mark: | :white_check_mark: |
+| Timers | :white_check_mark: | :white_check_mark: |
 | Profiling | :x: | :x: |
 | SQLite Schema | :white_check_mark: | :x: |
 | SQLite Data | :x: | :x: |
