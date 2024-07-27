@@ -60,6 +60,82 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
     RefreshButton = "Refresh"
 })
 
+if SERVER then
+    util.AddNetworkString("blobsProfiler:requestSQLiteData")
+
+    net.Receive("blobsProfiler:requestSQLiteData", function(len, ply)
+        if not blobsProfiler.CanAccess(ply, "serverData") then return end
+        if not blobsProfiler.CanAccess(ply, "serverData_SQLite") then return end
+        if not blobsProfiler.CanAccess(ply, "serverData_SQLite_Data") then return end
+
+        local tableName = net.ReadString()
+        local pageNum = net.ReadUInt(12)
+        if pageNum < 1 then pageNum = 1 end
+
+        local getSQLData = sql.Query("SELECT * FROM ".. sql.SQLStr(tableName) .. " LIMIT 25")
+        if getSQLData == false then
+            -- error
+        elseif getSQLData == nil then
+            -- no data
+        else
+            net.Start("blobsProfiler:requestSQLiteData")
+                net.WriteString(tableName)
+                net.WriteTable(getSQLData)
+            net.Send(ply)            
+        end
+    end)
+else
+    net.Receive("blobsProfiler:requestSQLiteData", function()
+        local tableName = net.ReadString()
+        local getSQLData = net.ReadTable()
+
+        blobsProfiler.Modules.SQLite.SubModules.Data.retrievingData = false
+        local schemaDataTable = blobsProfiler.Server.SQLite.Schema
+        local tableSelectorList = blobsProfiler.Server.SQLite.Data.tableSelectorList
+        local tableDataListView = blobsProfiler.Server.SQLite.Data.tableDataListView
+        
+        for k, line in ipairs( tableDataListView:GetLines() ) do
+            tableDataListView:RemoveLine(k)
+        end
+
+        for k,v in ipairs(tableDataListView.Columns) do
+            if v and IsValid(v) then v:Remove() end
+        end
+
+        tableDataListView.Columns = {}
+
+        local colList = schemaDataTable.Tables[tableName]
+        if colList then
+            local colAmnt = table.Count(colList)
+            for i=0, colAmnt-1 do
+                local colData = schemaDataTable.Tables[tableName][i] -- why the fuck is it a number now
+                tableDataListView:AddColumn(colData.Name)
+            end
+        end
+        tableDataListView:SetDirty( true )
+        
+        tableDataListView:FixColumnsLayout()
+
+        local tblOrder = {}
+        local colList = schemaDataTable.Tables[tableName]
+        if colList then
+            local colAmnt = table.Count(colList)
+            for i=0, colAmnt-1 do
+                local colData = schemaDataTable.Tables[tableName][i]
+                table.insert(tblOrder, colData.Name)
+            end
+        end
+
+        for _, record in ipairs(getSQLData) do
+            local dataBuild = {}
+            for __, key in ipairs(tblOrder) do
+                table.insert(dataBuild, record[key])
+            end
+            tableDataListView:AddLine(unpack(dataBuild))
+        end
+    end)
+end
+
 local function requestSQLiteData(luaState, tableName, pageNum)
     pageNum = pageNum or 1
     local schemaDataTable = blobsProfiler[luaState].SQLite.Schema
@@ -117,7 +193,11 @@ local function requestSQLiteData(luaState, tableName, pageNum)
             
         end
     else
-        -- TODO
+        blobsProfiler.Modules.SQLite.SubModules.Data.retrievingData = true
+        net.Start("blobsProfiler:requestSQLiteData")
+            net.WriteString(tableName)
+            net.WriteUInt(pageNum, 12)
+        net.SendToServer()
     end
 end
 
@@ -126,12 +206,11 @@ blobsProfiler.RegisterSubModule("SQLite", "Data", {
     OrderPriority = 2,
     CustomPanel = function(luaState, parentPanel)
         blobsProfiler[luaState].SQLite = blobsProfiler[luaState].SQLite or {}
+
         blobsProfiler[luaState].SQLite.Data = blobsProfiler[luaState].SQLite.Data or {}
 
-        if not blobsProfiler[luaState].SQLite.Schema then return end
-
-        local schemaDataTable = blobsProfiler[luaState].SQLite.Schema
-
+        local schemaDataTable = blobsProfiler[luaState].SQLite.Schema or {}
+        
         blobsProfiler[luaState].SQLite.Data.tableSelectorList = vgui.Create("DComboBox", parentPanel)
         blobsProfiler[luaState].SQLite.Data.tableDataListView = vgui.Create("DListView", parentPanel)
 
@@ -152,6 +231,23 @@ blobsProfiler.RegisterSubModule("SQLite", "Data", {
     
             if not tableSelectorList:GetSelected() then
                 tableSelectorList:ChooseOption(k, 1)
+            end
+        end
+    end,
+    OnOpen = function(luaState)
+        if blobsProfiler[luaState].SQLite.Data.tableSelectorList then
+
+            blobsProfiler[luaState].SQLite.Data.tableSelectorList.Data = {}
+            blobsProfiler[luaState].SQLite.Data.tableSelectorList.Choices = {}
+            
+            local schemaDataTable = blobsProfiler[luaState].SQLite.Schema or {}
+
+            for k, v in pairs(schemaDataTable.Tables or {}) do
+                blobsProfiler[luaState].SQLite.Data.tableSelectorList:AddChoice(k)
+        
+                if not blobsProfiler[luaState].SQLite.Data.tableSelectorList:GetSelected() then
+                    blobsProfiler[luaState].SQLite.Data.tableSelectorList:ChooseOption(k, 1)
+                end
             end
         end
     end

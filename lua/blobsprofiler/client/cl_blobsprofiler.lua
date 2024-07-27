@@ -1246,6 +1246,10 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 				end
 
 				moduleTab.OnActiveTabChanged = function(s, pnlOld, pnlNew)
+					if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen then
+						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState)
+					end
+
 					if not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
 						if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].UpdateRealmData then
 							blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()]:UpdateRealmData(luaState)
@@ -1312,10 +1316,16 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		end
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. subPropertySheetText)
 
-		if pnlNew:GetText() == "Server" and blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
-			if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
-			firstSubModule[subActiveTab:GetText()].data.retrievingData = true
-			firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
+		if pnlNew:GetText() == "Server" and blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] then
+			if firstSubModule[subActiveTab:GetText()].data.OnOpen then
+				firstSubModule[subActiveTab:GetText()].data.OnOpen("Server")
+			end
+
+			if firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
+				if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
+				firstSubModule[subActiveTab:GetText()].data.retrievingData = true
+				firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
+			end
 		end
 	end
 
@@ -1325,6 +1335,10 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
 				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Client")
 			end
+		end
+
+		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
+			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Client")
 		end
 	end
 
@@ -1336,11 +1350,20 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Server")
 			end
 		end
+
+		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
+			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Server")
+		end
 		
-		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
-			if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
-			firstSubModule[pnlNew:GetText()].data.retrievingData = true
-			firstSubModule[pnlNew:GetText()].data:UpdateRealmData("Server")
+		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] then
+			if firstSubModule[pnlNew:GetText()].data.OnOpen then
+				firstSubModule[pnlNew:GetText()].data.OnOpen("Server")
+			end
+			if firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
+				if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
+				firstSubModule[pnlNew:GetText()].data.retrievingData = true
+				firstSubModule[pnlNew:GetText()].data:UpdateRealmData("Server")
+			end
 		end
 	end
 
