@@ -17,16 +17,16 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
 ##### Modules
 | Module | Client | Server  |
 | ------------ | ------------ | ------------ |
-| _G explorer | :white_check_mark: | :x: |
-| Lua execute | :white_check_mark: | :x: |
+| _G explorer | :white_check_mark: | :wavy_dash: |
+| Lua execute | :white_check_mark: | :white_check_mark: |
 | Hooks | :white_check_mark: | :white_check_mark: |
-| ConCommands  | :white_check_mark: | :x: |
+| ConCommands  | :white_check_mark: | :white_check_mark: |
 | Convar | :x: | :x: |
-| Files | :white_check_mark: | :x: |
-|  Network (Receivers)  | :white_check_mark: | :x: |
+| Files | :white_check_mark: | :white_check_mark: |
+|  Network (Receivers)  | :white_check_mark: | :white_check_mark: |
 | Profiling | :x: | :x: |
 | SQLite Schema | :white_check_mark: | :x: |
-| SQLite Data | :white_check_mark: | :x: |
+| SQLite Data | :x: | :x: |
 | SQLite Execute | :x: | :x: |
 | Remote SQL Schema | :x: | :x: |
 | Remote SQL Data | :x: | :x: |
@@ -38,17 +38,17 @@ For now, the `blobsprofiler` command is currently locked away behind only a **cl
   - :x: Module enable/disable
   - :x: Module usergroup permission
 - Cleanup
-  - :x: Module-system (Code refactor)
+  - :wave_dash: Module-system (Code refactor)
 
 ### Known issues
-- Probably something, just nothing obvious
+- Server side globals will not fully transfer due to some type encoding issues, for now it's limited to a few types.
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
    - Ingame Lua (and soon SQL) editors
 - [Yogpod](https://github.com/Yogpod "Yogpod")
   - Posted a DTree script which sparked the whole idea behind this journey
-- [wyozi](https://github.com/wyozi/ "wyozi")
-  - GLua mode for Ace Editor JS
+- [Meta Construct](https://github.com/Metastruct "Meta Construct")
+  - GLua mode for Ace Editor
 - [Phoenixf](https://github.com/phoen1xf/ "Phoenixf")
   - Hosting the Ace Editor glua mode & being an awesome friend <3

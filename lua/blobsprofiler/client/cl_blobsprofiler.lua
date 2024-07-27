@@ -46,7 +46,7 @@ blobsProfiler.TypesToIcon = {
 }
 
 blobsProfiler.VarTypeIconOverride = {
-	["SQL_Schema"] = {
+	["Schema"] = {
 		["table"] = "table"
 	}
 }
@@ -114,7 +114,7 @@ local function viewPropertiesPopup(title, data, width, height)
 	return propertiesFrame
 end
 
-local function generateAceEditorPanel(parentPanel, content)
+blobsProfiler.generateAceEditorPanel = function(parentPanel, content)
 	local dhtmlPanel = vgui.Create("DHTML", parentPanel)
 	content = content or [[print("Hello world!")]]
 
@@ -166,6 +166,8 @@ local function generateAceEditorPanel(parentPanel, content)
 	return dhtmlPanel
 end
 
+blobsProfiler.sourceFrames = {}
+
 local function popupSourceView(sourceContent, frameTitle)
 	local sourceFrame = vgui.Create("DFrame")
 	sourceFrame:SetSize(500,500)
@@ -173,9 +175,26 @@ local function popupSourceView(sourceContent, frameTitle)
 	sourceFrame:Center()
 	sourceFrame:MakePopup()
 
-	local sourcePanel = generateAceEditorPanel(sourceFrame, sourceContent)
+	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent)
 	sourcePanel:Dock(FILL)
+
+	sourcePanel.OnRemove = function()
+		blobsProfiler.sourceFrames[frameTitle] = nil
+	end
+
+	blobsProfiler.sourceFrames[frameTitle] = sourceFrame
 end
+
+local function killAllSourcePopups()
+	for k,v in ipairs(blobsProfiler.sourceFrames) do
+		if IsValid(v) then
+			v:Remove()
+		end
+	
+		blobsProfiler.sourceFrames = {}
+	end	
+end
+killAllSourcePopups()
 
 local receivedSource = {}
 
@@ -216,50 +235,8 @@ net.Receive("blobsProfiler:sendSourceChunk", function()
     end
 end)
 
-local function stripFirstDirectoryFromPath(filePath) -- why does god hate me
-	local newPath = filePath:match("^.-/(.*)")
-	return newPath or filePath 
-end
-
-local function grabSourceFromFile(filePath, lineStart, lineEnd)
-    local locations = {"GAME", "LUA", "MOD"}
-    local findFile
-
-    for _, location in ipairs(locations) do
-        findFile = file.Open(filePath, "r", location)
-        if findFile then
-            break
-        end
-    end
-
-    if not findFile then
-        return nil
-	end
-
-    local content = {}
-    local currentLine = 1
-
-    while not findFile:EndOfFile() do
-        local line = findFile:ReadLine()
-
-        if currentLine >= lineStart and currentLine <= lineEnd then
-            table.insert(content, line)
-        end
-
-        if currentLine > lineEnd then
-            break
-        end
-		
-        currentLine = currentLine + 1
-    end
-
-    findFile:Close()
-
-    return table.concat(content, "\n")
-end
-
-blobsProfiler.Menu.RCFunctions = {}
-blobsProfiler.Menu.RCFunctions["Global"] = {
+blobsProfiler.Menu.RCFunctions = {} -- TODO: modularisation?
+blobsProfiler.Menu.RCFunctions["Globals"] = {
 	["string"] = {
 		{
 			name = "Print",
@@ -310,8 +287,9 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 		{
 			name = "View source",
 			func = function(ref, node, luaState)
+				local useValue = isfunction(ref.value) and ref.value or ref.value.func
 				if luaState == "Client" then
-					local debugInfo = debug.getinfo(ref.value, "S")
+					local debugInfo = debug.getinfo(useValue, "S")
 					if not string.EndsWith(debugInfo.short_src, ".lua") then
 						Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
 						return
@@ -323,9 +301,13 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 						net.WriteUInt(debugInfo.lastlinedefined, 16)
 					net.SendToServer()
 				elseif luaState == "Server" then
-					PrintTable(ref)
+					if not string.EndsWith(ref.value.short_src, ".lua") then
+						Derma_Message("Invalid function source: ".. ref.value.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+						return
+					end
+
 					net.Start("blobsProfiler:requestSource")
-						net.WriteString(ref.value.source)
+						net.WriteString(ref.value.short_src)
 						net.WriteUInt(ref.value.linedefined, 16)
 						net.WriteUInt(ref.value.lastlinedefined, 16)
 					net.SendToServer()
@@ -339,10 +321,12 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 				local propertiesData = {}
 
 				if luaState == "Client" then
-					local debugInfo = debug.getinfo(ref.value)
+					local debugInfo = debug.getinfo(isfunction(ref.value) and ref.value or ref.value.func)
 					propertiesData["debug.getinfo()"] = debugInfo
 				elseif luaState == "Server" then
-					propertiesData["debug.getinfo()"] = ref.value
+					local propertiesTbl = table.Copy(ref.value)
+					propertiesTbl.fakeVarType = nil
+					propertiesData["debug.getinfo()"] = propertiesTbl
 				end
 				
 				local popupView = viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
@@ -351,8 +335,8 @@ blobsProfiler.Menu.RCFunctions["Global"] = {
 		}
 	}
 }
-blobsProfiler.Menu.RCFunctions["Hooks"] = blobsProfiler.Menu.RCFunctions["Global"]
-blobsProfiler.Menu.RCFunctions["ConCommands"] = blobsProfiler.Menu.RCFunctions["Global"]
+blobsProfiler.Menu.RCFunctions["Hooks"] = blobsProfiler.Menu.RCFunctions["Globals"]
+blobsProfiler.Menu.RCFunctions["ConCommands"] = blobsProfiler.Menu.RCFunctions["Globals"]
 blobsProfiler.Menu.RCFunctions["Files"] = {
 	["table"] = {
 		{
@@ -456,7 +440,7 @@ blobsProfiler.Menu.RCFunctions["Files"] = {
 		}
 	}
 }
-blobsProfiler.Menu.RCFunctions["Network"] = blobsProfiler.Menu.RCFunctions["Global"]
+blobsProfiler.Menu.RCFunctions["Network"] = blobsProfiler.Menu.RCFunctions["Globals"]
 blobsProfiler.Menu.RCFunctions["Timers"] = {
 	["table"] = { -- root node, timer identifier
 		{
@@ -608,11 +592,13 @@ blobsProfiler.Menu.RCFunctions["SQL_Schema"] = {
 }
 
 blobsProfiler.Menu.TypeFolders = {}
+blobsProfiler.Menu.TypeFolders.Client = {}
+blobsProfiler.Menu.TypeFolders.Server = {}
 
 for k,v in ipairs(blobsProfiler.Menu.GlobalTypesToCondense) do
-	blobsProfiler.Menu.TypeFolders[v.type] = true
+	blobsProfiler.Menu.TypeFolders.Client[v.type] = true
+	blobsProfiler.Menu.TypeFolders.Server[v.type] = true
 end
-
 local function nodeEntriesTableKeySort(a, b)
 	local aIsTable = type(a.value) == 'table'
 	local bIsTable = type(b.value) == 'table'
@@ -642,30 +628,26 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	local nodeKey = nodeData.key
 	local nodeValue = nodeData.value
 	local dataType = type(nodeValue)
+	local visualDataType = dataType
 	local iconOverride = nil
 
 	local childNode
 
 	local useParent = parentNode
+	
+	if istable(nodeValue) and nodeValue.fakeVarType then
+		visualDataType = nodeValue.fakeVarType
+	end
 
-	if isRoot && varType == "Global" then
+	if isRoot && varType == "Globals" then
 		local dataType = type(nodeData.value)
-		local specialFolderPanel = blobsProfiler.Menu.TypeFolders[dataType]
+		local specialFolderPanel = blobsProfiler.Menu.TypeFolders[luaState][visualDataType]
 		if specialFolderPanel && type(specialFolderPanel) == "Panel" then
 			useParent = specialFolderPanel
 		end
 	end
 
-	if luaState == "Server" then
-		if varType == "Hooks" && type(nodeValue) == "table" then
-			if nodeValue.func then
-				dataType = "function"
-				iconOverride = "icon16/script_code.png"
-			end
-		end
-	end
-
-	if dataType == "table" then
+	if visualDataType == "table" then
 		childNode = useParent:AddNode(nodeKey)
 		childNode.Icon:SetImage(specialType && "icon16/folder_database.png" || "icon16/folder.png")
 
@@ -716,7 +698,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			childNode.oldExpand(...)
 		end
 
-		if varType == "SQL_Schema" then
+		if varType == "Schema" then
 			if nodeValue["ID"] or nodeValue["Default"] or nodeValue["Not NULL"] then -- TODO: Gotta be a better way to determine if this is a SQL table entry
 				childNode.Label:SetText(nodeValue.Name)
 			end
@@ -726,21 +708,21 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	else
 		local nodeText = nodeKey
-		if varType == "SQL_Schema" then
+		if varType == "Schema" then
 			nodeText = nodeKey .. ": " .. tostring(nodeValue)
 		elseif varType == "Files" then
 			nodeText = nodeValue
 		end
 
 		childNode = useParent:AddNode(nodeText)
-		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[type(nodeValue)] || "page_white_text") ..".png")
+		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[visualDataType] || "page_white_text") ..".png")
 
-		if blobsProfiler.VarTypeIconOverride[varType] and blobsProfiler.VarTypeIconOverride[varType][dataType] then
-			childNode.Icon:SetImage("icon16/" .. blobsProfiler.VarTypeIconOverride[varType][dataType] .. ".png")
+		if blobsProfiler.VarTypeIconOverride[varType] and blobsProfiler.VarTypeIconOverride[varType][visualDataType] then
+			childNode.Icon:SetImage("icon16/" .. blobsProfiler.VarTypeIconOverride[varType][visualDataType] .. ".png")
 		end
 
 		childNode.DoClick = function()
-			if isRoot && useParent == parentNode && varType == "Global" then
+			if isRoot && useParent == parentNode && varType == "Globals" then
 				print("blobsProfiler: Non-foldered root for type: ".. type(nodeValue))
 			end
 
@@ -760,7 +742,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	end
 
-	varType = varType or "Global"
+	varType = varType or "Globals"
 
 	if parentNode.Restrictions then
 		childNode.Restrictions = parentNode.Restrictions
@@ -780,11 +762,11 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	childNode.DoRightClick = function()
 		childNode:InternalDoClick()
 
-		if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then
+		if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then
 			blobsProfiler.Menu.RCMenu = DermaMenu()
 			local RCMenu = blobsProfiler.Menu.RCMenu
 			
-			for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][dataType]) do
+			for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
 				if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
 					continue
 				end
@@ -854,8 +836,8 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	end
 
-	if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then				
-		for k,v in ipairs(blobsProfiler.Menu.RCFunctions[varType][dataType]) do
+	if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then				
+		for k,v in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
 			if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
 				continue
 			end
@@ -871,11 +853,13 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		childNode.parentNode = parentNode
 	end
 
-	if dataType and dataType == "function" then
+	if visualDataType and visualDataType == "function" then
 		childNode.FunctionRef = {name=nodeKey, func=nodeValue, path = "_G." .. childNode.GlobalPath}
 		childNode:SetForceShowExpander(true)
 		childNode:IsFunc()
 
+		blobsProfiler[luaState].Profile = blobsProfiler[luaState].Profile or {}
+		
 		blobsProfiler[luaState].Profile.Raw = blobsProfiler[luaState].Profile.Raw or {}
 		childNode.Expander.OnChange = function(s, isChecked)
 			blobsProfiler[luaState].Profile[varType] = blobsProfiler[luaState].Profile[varType] or {}
@@ -891,12 +875,24 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	childNode.DoClick = function() -- hacky asf
-		-- Find the first available right click option and run the func method
-		-- Todo add check for how long ago it was clicked
-		if selectedNode and selectedNode == childNode then
+		-- Find the first available right click option and run the func method (or expand)
+		if selectedNode and selectedNode == childNode then -- ay carumba
+			if childNode.lastClicked and (CurTime() - childNode.lastClicked > 1) then
+				selectedNode = childNode
+				childNode.lastClicked = CurTime()
+				return
+			end
+
 			local dataType = type(nodeValue)
-			if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then
-				for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][dataType]) do
+			local visualDataType = dataType
+			if istable(nodeValue) and nodeValue.fakeVarType then
+				visualDataType = nodeValue.fakeVarType -- every day we stray further away from god
+			end
+
+			if dataType == "table" and childNode.Expander and childNode.Expander.SetExpanded then
+				childNode:SetExpanded(not childNode:GetExpanded())
+			elseif blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then
+				for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
 					if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
 						continue
 					end
@@ -908,14 +904,13 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 					break
 				end
 			end
+
 			selectedNode = nil
+			childNode.lastClicked = nil
 		else
 			selectedNode = childNode
+			childNode.lastClicked = CurTime()
 		end
-	end
-
-	if iconOverride then
-		childNode.Icon:SetImage(iconOverride)
 	end
 
 	childNode.varType = varType
@@ -923,16 +918,23 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	return childNode
 end
 
-local function buildDTree(luaState, parentPanel, varType)
+local function buildDTree(luaState, parentPanel, rvarType)
 	local dTree = vgui.Create("BP_DTree", parentPanel)
 	dTree:Dock(FILL)
-	dTree:SetVisible(false)
-
+	--dTree:SetVisible(false)
+	blobsProfiler.Log(blobsProfiler.L_DEBUG, "buildDTree " .. luaState .. " " .. rvarType)
 	local rootNodes = {}
 
-	local dataTable = blobsProfiler.GetDataTableForRealm(luaState, varType)
+	local subModuleSplit = string.Explode(".", rvarType)
+	local varType = subModuleSplit[1]
 
-	if varType == "Global" then
+	if #subModuleSplit > 1 then
+		varType = subModuleSplit[2] -- ew
+	end
+
+	local dataTable = blobsProfiler.GetDataTableForRealm(luaState, rvarType) or {}
+
+	if varType == "Globals" then -- TODO: make this shit modular
 		for key, value in pairs(dataTable) do
 			table.insert(rootNodes, {
 				key = key,
@@ -951,9 +953,9 @@ local function buildDTree(luaState, parentPanel, varType)
 		end
 
 		for index, nodeData in ipairs(specialNodes) do
-			if blobsProfiler.Menu.TypeFolders[nodeData.special] == true then
-				blobsProfiler.Menu.TypeFolders[nodeData.special] = addDTreeNode(dTree, nodeData, true, true, varType, luaState)
-				blobsProfiler.Menu.TypeFolders[nodeData.special].nodeData = nodeData
+			if blobsProfiler.Menu.TypeFolders[luaState][nodeData.special] == true then
+				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special] = addDTreeNode(dTree, nodeData, true, true, varType, luaState)
+				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special].nodeData = nodeData
 			end
 		end
 	elseif varType == "Hooks" then
@@ -991,9 +993,23 @@ local function buildDTree(luaState, parentPanel, varType)
 				value = v
 			})
 		end
+	elseif rvarType == "SQLite.Schema" then
+		if dataTable.Tables and dataTable.Indices then
+			table.insert(rootNodes, {
+				key = "Tables",
+				value = blobsProfiler.TableSort.SQLTableColSort(dataTable.Tables)
+			})
+	
+			table.insert(rootNodes, {
+				key = "Indices",
+				value = blobsProfiler.TableSort.KeyAlphabetical(dataTable.Indices)
+			})
+		end
 	end
 
-	table.sort(rootNodes, nodeEntriesTableKeySort)
+	if rvarType ~= "SQLite.Schema" then -- ewww
+		table.sort(rootNodes, nodeEntriesTableKeySort)
+	end
 
 	local rootNodesLen = #rootNodes
 
@@ -1006,37 +1022,7 @@ local function buildDTree(luaState, parentPanel, varType)
 	end
 end
 
-local function buildSQLSchemaTab(luaState, parentPanel)
-	local realmDataTable = blobsProfiler.GetDataTableForRealm(luaState, "SQL")
-
-	local rootNodes = {}
-	if realmDataTable.SchemaTables and realmDataTable.SchemaIndices then
-		table.insert(rootNodes, {
-			key = "Tables",
-			value = blobsProfiler.TableSort.SQLTableColSort(realmDataTable.SchemaTables)
-		})
-
-		table.insert(rootNodes, {
-			key = "Indices",
-			value = blobsProfiler.TableSort.KeyAlphabetical(realmDataTable.SchemaIndices)
-		})
-	end
-	--table.sort(rootNodes, rootNodeEntriesTableKeySort)
-
-	local dTree = vgui.Create("BP_DTree", parentPanel)
-	dTree:Dock(FILL)
-	dTree:SetVisible(false)
-
-	local rootNodesLen = #rootNodes
-
-	for index, nodeData in ipairs(rootNodes) do
-		addDTreeNode(dTree, nodeData, false, true, "SQL_Schema", luaState)
-
-		if index == rootNodesLen then
-			dTree:SetVisible(true)
-		end
-	end
-end
+--[[
 
 local function buildSQLDataTab(luaState, parentPanel)
 	local realmDataTable = blobsProfiler.GetDataTableForRealm(luaState, "SQL")
@@ -1108,56 +1094,7 @@ local function buildSQLDataTab(luaState, parentPanel)
 		end
 	end
 end
-
-local function buildSQLTab(luaState, parentPanel)
-	--local sqlTabMenu = vgui.Create( "DPropertySheet", parentPanel)
-	--sqlTabMenu:Dock( FILL )
-
-	local tabSchema = vgui.Create( "DPanel", parentPanel )
-	parentPanel:AddSheet( "Schema", tabSchema, "icon16/database_gear.png" )
-	buildSQLSchemaTab(luaState, tabSchema)
-
-	local tabData = vgui.Create( "DPanel", parentPanel )
-	parentPanel:AddSheet( "Data", tabData, "icon16/page_white_database.png" )
-	buildSQLDataTab(luaState, tabData)
-
-	local tabExecute = vgui.Create( "DPanel", parentPanel )
-	parentPanel:AddSheet( "Execute", tabExecute, "icon16/database_go.png" )
-end
-
-local function luaExecutePanel(luaState, parentPanel)  -- TODO: server execution
-
-	local dhtmlPanel = generateAceEditorPanel(parentPanel, content)
-
-	dhtmlPanel:Dock(FILL)
-
-	dhtmlPanel:AddFunction("gmod", "receiveEditorContent", function(value)
-		RunString(value)
-	end)
-
-
-    local executeButton = vgui.Create("DButton", parentPanel)
-    executeButton:Dock(BOTTOM)
-    executeButton:SetText("Execute Lua Code")
-    executeButton:DockMargin(0, 5, 0, 0)
-
-    executeButton.DoClick = function()
-		dhtmlPanel:RunJavascript([[
-			var value = getEditorValue();
-			gmod.receiveEditorContent(value);
-		]])
-    end
-end
-
-local function buildLuaTab(luaState, parentPanel)
-	local tabGlobals = vgui.Create( "DPanel", parentPanel )
-	parentPanel:AddSheet( "Globals", tabGlobals, "icon16/page_white_world.png" )
-	buildDTree(luaState, tabGlobals, "Global")
-
-	local tabExecute = vgui.Create( "DPanel", parentPanel )
-	parentPanel:AddSheet( "Execute", tabExecute, "icon16/script_code.png" )
-	luaExecutePanel(luaState, tabExecute)
-end
+]]
 
 if blobsProfiler.Menu.MenuFrame && IsValid(blobsProfiler.Menu.MenuFrame) then
 	blobsProfiler.Menu.MenuFrame:Remove() -- kill on lua refresh
@@ -1192,9 +1129,9 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	end
 
 	if not blobsProfiler.DataTablesSetup or argStr == "refresh" then
-		blobsProfiler.InitOrSetupRealmDataTables()
-		print("blobsProfiler: Refreshed data tables for: Client") -- this will always be on client lol
-		
+		blobsProfiler.Client = {}
+		blobsProfiler.Server = {}
+
 		if blobsProfiler.Menu.MenuFrame or IsValid(blobsProfiler.Menu.MenuFrame) then
 			blobsProfiler.Menu.MenuFrame:Remove()
 			blobsProfiler.Menu.MenuFrame = nil
@@ -1212,8 +1149,11 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	end
 	
 	blobsProfiler.Menu.TypeFolders = {}
+	blobsProfiler.Menu.TypeFolders.Client = {}
+	blobsProfiler.Menu.TypeFolders.Server = {}
 	for k,v in ipairs(blobsProfiler.Menu.GlobalTypesToCondense) do
-		blobsProfiler.Menu.TypeFolders[v.type] = true
+		blobsProfiler.Menu.TypeFolders.Client[v.type] = true
+		blobsProfiler.Menu.TypeFolders.Server[v.type] = true
 	end
 
 	blobsProfiler.Menu.selectedRealm = "Client"
@@ -1225,6 +1165,10 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	blobsProfiler.Menu.MenuFrame:SetSizable(true)
 	blobsProfiler.Menu.MenuFrame:SetMinWidth( blobsProfiler.Menu.MenuFrame:GetWide() )
 	blobsProfiler.Menu.MenuFrame:SetMinHeight( blobsProfiler.Menu.MenuFrame:GetTall() )
+
+	blobsProfiler.Menu.MenuFrame.OnRemove = function()
+		killAllSourcePopups()
+	end
 
 	local tabMenu = vgui.Create( "DPropertySheet", blobsProfiler.Menu.MenuFrame)
 	tabMenu:Dock( FILL )
@@ -1262,11 +1206,173 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 	tabClient.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		if not blobsProfiler.Client[pnlNew:GetText()] then
+			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
+				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Client")
+			end
+		end
 	end
 
 	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
-		if blobsProfiler.RequestData.Server[pnlNew:GetText()] and not blobsProfiler.Server[pnlNew:GetText()] then blobsProfiler.RequestData.Server[pnlNew:GetText()]() end
+		if not blobsProfiler.Server[pnlNew:GetText()] then
+			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
+				blobsProfiler.Modules[pnlNew:GetText()].retrievingData = true
+				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Server")
+			end
+		end
+	end
+
+
+	local luaStates = {
+		Client = tabClient,
+		Server = tabServer
+	}
+
+	local orderedModules = {}
+	for moduleName, moduleData in pairs(blobsProfiler.Modules) do
+		table.insert(orderedModules, {name=moduleName, data=moduleData})
+	end
+
+	local function sortByLoadPriority(a, b)
+		return (a.data.OrderPriority or 9999) < (b.data.OrderPriority or 9999)
+	end
+
+	table.sort(orderedModules, sortByLoadPriority)
+	local firstSubModule = {}
+	for luaState, statePanel in pairs(luaStates) do
+		for loadOrderID, loadData in ipairs(orderedModules) do
+			local moduleName = loadData.name
+			local moduleData = loadData.data
+			local usePanelType = moduleData.SubModules and "DPropertySheet" or "DPanel"
+			
+			blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module panel setup for module: " .. moduleName .. " (".. luaState ..")")
+			
+			local moduleTab = vgui.Create(usePanelType, statePanel)
+			statePanel:AddSheet( moduleName, moduleTab, moduleData.Icon )
+
+			if luaState == "Client" and moduleData.UpdateRealmData and moduleData.PreloadClient then
+				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Preloading client data for module: ".. moduleName)
+				moduleData.UpdateRealmData("Client")
+			end
+			if luaState == "Server" and moduleData.UpdateRealmData and moduleData.PreloadServer then
+				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Preloading server data for module: ".. moduleName)
+				moduleData.UpdateRealmData("Server")
+				moduleData.retrievingData = true
+			end
+
+			if moduleData.BuildPanel then
+				moduleData.BuildPanel(luaState, moduleTab)
+			end
+
+			if moduleData.SubModules then
+				local orderedSubModules = {}
+				for subModuleName, subModuleData in pairs(moduleData.SubModules) do
+					table.insert(orderedSubModules, {name=subModuleName, data=subModuleData})
+				end
+			
+				table.sort(orderedSubModules, sortByLoadPriority)
+
+
+				for subLoadOrderID, subLoadData in pairs(orderedSubModules) do
+					local subModuleName = subLoadData.name
+					local subModuleData = subLoadData.data
+
+					if not firstSubModule[moduleName] then firstSubModule[moduleName] = {name=subModuleName, data=subModuleData} end 
+
+					local subModuleTab = vgui.Create("DPanel", moduleTab)
+					moduleTab:AddSheet( subModuleName, subModuleTab, subModuleData.Icon )
+
+					if luaState == "Client" and subModuleData.PreloadClient and subModuleData.UpdateRealmData then
+						blobsProfiler.Log(blobsProfiler.L_DEBUG, "Preloading client data for ".. moduleName .." submodule: ".. subModuleName)
+						subModuleData.UpdateRealmData("Client")
+					end
+					if luaState == "Server" and subModuleData.PreloadServer and subModuleData.UpdateRealmData then
+						blobsProfiler.Log(blobsProfiler.L_DEBUG, "Preloading server data for ".. moduleName .." submodule: ".. subModuleName)
+						subModuleData.UpdateRealmData("Server")
+						subModuleData.retrievingData = true
+					end
+
+					if subModuleData.CustomPanel then
+						subModuleData.CustomPanel(luaState, subModuleTab)
+					end
+
+					if subModuleData.BuildPanel then
+						subModuleData.BuildPanel(luaState, subModuleTab)
+					end
+					if subModuleData.RefreshButton then
+						local refreshButton = vgui.Create("DButton", subModuleTab)
+						refreshButton:Dock(BOTTOM)
+						refreshButton:SetText(subModuleData.RefreshButton)
+						refreshButton.DoClick = function()
+							subModuleData.UpdateRealmData(luaState)
+							if luaState == "Server" then subModuleData.retrievingData = true end
+							if luaState == "Client" and subModuleData.BuildPanel then
+								subModuleData.BuildPanel(luaState, subModuleTab)
+							end
+						end
+					end
+					subModuleTab.PaintOver = function(s,w,h)
+						if subModuleData.retrievingData then
+							surface.SetDrawColor(50,50,50,100)
+							surface.DrawRect(0,0,w,h)
+							draw.SimpleTextOutlined("Retrieving data..", "HudDefault", w/2, h/2, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+						end
+					end
+
+					if luaState == "Client" then
+						subModuleData.ClientTab = subModuleTab
+					elseif luaState == "Server" then
+						subModuleData.ServerTab = subModuleTab
+					end
+					moduleTab:OnActiveTabChanged(nil, moduleTab:GetActiveTab())
+				end
+
+				moduleTab.OnActiveTabChanged = function(s, pnlOld, pnlNew)
+					if not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
+						if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].UpdateRealmData then
+							blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()]:UpdateRealmData(luaState)
+							if luaState == "Server" then
+								blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].retrievingData = true
+							end
+						end
+					end
+				end
+			end
+
+			moduleTab.PaintOver = function(s,w,h)
+				if moduleData.retrievingData then
+					surface.SetDrawColor(50,50,50,100)
+					surface.DrawRect(0,0,w,h)
+					draw.SimpleTextOutlined("Retrieving data..", "HudDefault", w/2, h/2, Color(255,255,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0,0,0))
+				end
+			end
+
+			if moduleData.RefreshButton then
+				local refreshButton = vgui.Create("DButton", moduleTab)
+				refreshButton:Dock(BOTTOM)
+				refreshButton:SetText(moduleData.RefreshButton)
+				refreshButton.DoClick = function()
+					moduleData.UpdateRealmData(luaState)
+					if luaState == "Server" then moduleData.retrievingData = true end
+					if luaState == "Client" and moduleData.BuildPanel then
+						moduleData.BuildPanel(luaState, moduleTab)
+					end
+				end
+			end
+
+			if luaState == "Client" then
+				moduleData.ClientTab = moduleTab
+			elseif luaState == "Server" then
+				moduleData.ServerTab = moduleTab
+			end
+		end
+
+		--[[
+		local tabSQL = vgui.Create( "DPropertySheet", statePanel )
+		statePanel:AddSheet( "SQLite", tabSQL, "icon16/database.png" )
+		buildSQLTab(luaState, tabSQL)
+		blobsProfiler.Tabs[luaState].SQLite = tabSQL]]
 	end
 
 	tabMenu.OnActiveTabChanged = function(s, pnlOld, pnlNew)
@@ -1279,93 +1385,50 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			subPropertySheetText = " - " .. subActiveTab:GetText()
 		end
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. subPropertySheetText)
-	end
 
-
-	local luaStates = {
-		Client = tabClient,
-		Server = tabServer
-	}
-
-	for luaState, statePanel in pairs(luaStates) do
-		local tabLua = vgui.Create("DPropertySheet", statePanel)
-		statePanel:AddSheet( "Lua", tabLua, "icon16/world.png" )
-		buildLuaTab(luaState, tabLua)
-		blobsProfiler.Tabs[luaState].Lua = tabLua
-		
-		local tabHooks = vgui.Create( "DPanel", statePanel )
-		statePanel:AddSheet( "Hooks", tabHooks, "icon16/brick_add.png" )
-		buildDTree(luaState, tabHooks, "Hooks")
-		blobsProfiler.Tabs[luaState].Hooks = tabHooks
-
-		local tabConcommands = vgui.Create( "DPanel", statePanel )
-		statePanel:AddSheet( "ConCommands", tabConcommands, "icon16/application_xp_terminal.png" )
-		buildDTree(luaState, tabConcommands, "ConCommands")
-		blobsProfiler.Tabs[luaState].ConCommands = tabConcommands
-
-		blobsProfiler.ScanGLoadedFiles()
-		local tabFiles = vgui.Create( "DPanel", statePanel )
-		statePanel:AddSheet( "Files", tabFiles, "icon16/folder_page.png" )
-		buildDTree(luaState, tabFiles, "Files")
-		blobsProfiler.Tabs[luaState].Files = tabFiles
-
-		local fileRescan = vgui.Create("DButton", tabFiles)
-		fileRescan:Dock(BOTTOM)
-		fileRescan:SetText("Re-scan")
-		fileRescan:SetTooltip("This will re-scan the global table for functions, retrieve their source file and add it to the list")
-		fileRescan.DoClick = function()
-			-- TODO client/server difference
-			local newFiles = blobsProfiler.ScanGLoadedFiles()
-			buildDTree(luaState, tabFiles, "Files")
-
-			Derma_Message("Global scan complete, new files found: ".. #newFiles, "Global re-scan", "OK") -- TODO: better view of new files? idea: highlight dtree node different colour until hovered to 'acknowledge'
-			if #newFiles > 0 then
-				print("Re-scan new files found:")
-				PrintTable(newFiles)
-			end
+		if pnlNew:GetText() == "Server" and blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
+			if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
+			firstSubModule[subActiveTab:GetText()].data.retrievingData = true
+			firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
 		end
-
-		local tabNetwork = vgui.Create( "DPanel", statePanel )
-		statePanel:AddSheet( "Network", tabNetwork, "icon16/drive_network.png" )
-		buildDTree(luaState, tabNetwork, "Network")
-		blobsProfiler.Tabs[luaState].Network = tabNetwork
-
-		local tabTimers = vgui.Create( "DPanel", statePanel )
-		statePanel:AddSheet( "Timers", tabTimers, "icon16/clock.png" )
-		buildDTree(luaState, tabTimers, "Timers")
-		blobsProfiler.Tabs[luaState].Timers = tabTimers
-
-		local tabSQL = vgui.Create( "DPropertySheet", statePanel )
-		statePanel:AddSheet( "SQLite", tabSQL, "icon16/database.png" )
-		buildSQLTab(luaState, tabSQL)
-		blobsProfiler.Tabs[luaState].SQLite = tabSQL
 	end
 
 	tabMenu:OnActiveTabChanged(nil, tabMenu:GetActiveTab()) -- lol
 end)
 
---[[net.Receive("blobsProfiler:requestData", function()
-	if not blobsProfiler.CanAccess(LocalPlayer(), "serverData") then return end
-	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData NW")
-	local dataModule = net.ReadString()
+netstream.Hook("blobsProfiler:requestData", function(rawModuleName, dataTable)
+	local moduleSplit = string.Explode(".", rawModuleName) -- [1] is parent, [2] is submodule
+    local moduleName = moduleSplit[1]
+    local subModule = nil
+	
+	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData module: ".. rawModuleName)
 
-	blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. dataModule)
-
-	if dataModule == "Hooks" then
-		blobsProfiler.Server.Hooks = net.ReadTable()
-
-		buildDTree("Server", blobsProfiler.Tabs.Server.Hooks)
+	if #moduleSplit == 2 then -- ew
+        subModule = moduleSplit[2]		
 	end
-end)]]
 
-netstream.Hook("blobsProfiler:requestData", function(dataModule, dataTable)
-	if not blobsProfiler.CanAccess(LocalPlayer(), "serverData") then return end
+	
+	if not subModule then
+		if blobsProfiler.Modules[moduleName] then
+			blobsProfiler.SetRealmData("Server", moduleName, dataTable)
+			blobsProfiler.Modules[moduleName].retrievingData = false
 
-	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData module: ".. dataModule)
+			if blobsProfiler.Modules[moduleName].BuildPanel then
+				blobsProfiler.Modules[moduleName].BuildPanel("Server", blobsProfiler.Modules[moduleName].ServerTab)
+				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module.BuildPanel completed for module "..moduleName.. " (Server)")
+			end
+		end
+	else
+		if blobsProfiler.Modules[moduleName] and blobsProfiler.Modules[moduleName].SubModules[subModule] then
+			blobsProfiler.SetRealmData("Server", rawModuleName, dataTable)
+			blobsProfiler.Modules[moduleName].SubModules[subModule].retrievingData = false
 
-	if dataModule == "Hooks" then
-		blobsProfiler.Server.Hooks = dataTable
-
-		buildDTree("Server", blobsProfiler.Tabs.Server.Hooks, "Hooks")
+			if blobsProfiler.Modules[moduleName].SubModules[subModule].BuildPanel then
+				blobsProfiler.Modules[moduleName].SubModules[subModule].BuildPanel("Server", blobsProfiler.Modules[moduleName].SubModules[subModule].ServerTab)
+				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module.BuildPanel completed for ".. moduleName .." submodule ".. subModule.. " (Server)")
+			end
+		end
 	end
 end)
+
+blobsProfiler.buildDTree = buildDTree

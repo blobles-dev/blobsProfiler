@@ -79,85 +79,6 @@ blobsProfiler.Log = function(lLevel, lMessage, lSendToServer, lErrStack) -- TODO
     end
 end
 
-
-blobsProfiler.InitSQLiteData = function()
-    local rootDataTable = SERVER and blobsProfiler.Server or blobsProfiler.Client
-    
-    rootDataTable.SQLite = {}
-    rootDataTable.SQLite.SchemaTables = {}
-    rootDataTable.SQLite.SchemaIndices = {}
-
-    local grabTableIndexData = sql.Query("SELECT * FROM sqlite_master")
-
-    if grabTableIndexData then
-        for _, tblData in ipairs(grabTableIndexData) do
-			if tblData.type == "table" then
-				rootDataTable.SQLite.SchemaTables[tblData.name] = {}
-				local grabTableColumnData = sql.Query("PRAGMA table_info(".. sql.SQLStr(tblData.name) ..");")
-				if grabTableColumnData then
-					for _, tblCol in ipairs(grabTableColumnData) do
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid] = {}
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["ID"] = tblCol.cid
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["Name"] = tblCol.name
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["Primary Key"] = tobool(tblCol.pk) or nil
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["Type"] = tblCol.type or nil
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["Not NULL"] = tblCol.notnull or nil
-						rootDataTable.SQLite.SchemaTables[tblData.name][tblCol.cid]["Default"] = tblCol.dflt_value or nil
-					end
-				else
-					print("blobsProfiler.InitSQLiteData: Unable to retrieve columns for SQLite table '".. tblData.name .."' (No columns/Error)")
-				end
-			elseif tblData.type == "index" then
-				rootDataTable.SQLite.SchemaIndices[tblData.name] = {}
-				--blobsProfiler.SQLite.SchemaIndices[v.name].CreateSQL = v.sql
-			end
-        end
-    else
-        error("blobsProfiler.InitSQLiteData: Failed to grab schema data from SQLite DB")
-    end
-end
-
-blobsProfiler.InitOrSetupRealmDataTables = function() -- allows for init or refresh of data tables (except files or timers, due to how they work)
-    if CLIENT then
-        blobsProfiler.Client._G = table.Copy(_G)
-        blobsProfiler.Client.Hooks = table.Copy(hook.GetTable())
-        blobsProfiler.Client.ConCommands = table.Copy(concommand.GetTable())
-        -- Files already initialised
-        blobsProfiler.Client.Network = table.Copy(net.Receivers)
-        -- Timers already initialised
-
-        blobsProfiler.Server._G = {}
-        blobsProfiler.Server.Hooks = {}
-        blobsProfiler.Server.ConCommands = {}
-        blobsProfiler.Server.includedFiles = {}
-        blobsProfiler.Server.Network = {}
-        blobsProfiler.Server.createdTimers = {}
-        blobsProfiler.Server.SQLite = {}
-    end
-
-    if SERVER then
-        blobsProfiler.Server._G = table.Copy(_G)
-        blobsProfiler.Server.Hooks = table.Copy(hook.GetTable())
-        blobsProfiler.Server.ConCommands = table.Copy(concommand.GetTable())
-        -- Files already initialised
-        blobsProfiler.Server.Network = table.Copy(net.Receivers)
-        -- Timers already initialised
-
-        -- TODO: Does the server even need access to the client data tables?
-        blobsProfiler.Client._G = {}
-        blobsProfiler.Client.Hooks = {}
-        blobsProfiler.Client.ConCommands = {}
-        blobsProfiler.Client.includedFiles = {}
-        blobsProfiler.Client.Network = {}
-        blobsProfiler.Client.createdTimers = {}
-        blobsProfiler.Client.SQLite = {}
-    end
-    
-    blobsProfiler.InitSQLiteData()
-
-    blobsProfiler.DataTablesSetup = true
-end
-
 -- TODO:
 -- Complete todo list
 -- Prevent blobsProfiler.Restrictions modification outside of this file
@@ -182,7 +103,7 @@ blobsProfiler.RestrictAccess = function(rType, rValue, rMethod) -- Legacy?
                 DELETE: Deny
     ]]
 
-    if not rType or type(rType) ~= "string" or not table.HasValue({"Global", "Function", "Hook", "Concommand"}, rType) then
+    if not rType or type(rType) ~= "string" or not table.HasValue({"Globals", "Function", "Hook", "Concommand"}, rType) then
         error("blobsProfiler.RestrictAccess: Invalid rType provided '".. rType .."'\nAllowed string values: Global, Function, Hook, Concommand")
     end
     if not rMethod then -- Type is checked later on
@@ -250,30 +171,33 @@ blobsProfiler.CanAccess = function(cPly, cArea, cRealm)
     return cPly:IsUserGroup("superadmin") -- TODO
 end
 
-blobsProfiler.GetDataTableForRealm = function(luaState, dataType, forceRefresh)
-    if luaState ~= "Client" and luaState ~= "Server" then return {} end
-
-    if forceRefresh then blobsProfiler.InitOrSetupRealmDataTables() end
-
-    if dataType == "*" then
-        return blobsProfiler[luaState]
-    elseif dataType == "Global" then
-        return blobsProfiler[luaState]._G
-    elseif dataType == "Hooks" then
-        return blobsProfiler[luaState].Hooks
-    elseif dataType == "ConCommands" then
-        return blobsProfiler[luaState].ConCommands
-    elseif dataType == "Files" then
-        return blobsProfiler[luaState].includedFiles
-    elseif dataType == "Network" then
-        return blobsProfiler[luaState].Network
-    elseif dataType == "Timers" then
-        return blobsProfiler[luaState].createdTimers
-    elseif dataType == "SQL" then
-        return blobsProfiler[luaState].SQLite
+blobsProfiler.SetRealmData = function(luaState, moduleName, dataTable)
+    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Setting " .. moduleName .. " ".. luaState .. " data")
+	blobsProfiler[luaState] = blobsProfiler[luaState] or {}
+    
+    local moduleSplit = string.Explode(".", moduleName) -- [1] is parent, [2] is submodule
+    
+	if #moduleSplit == 1 then -- ew
+        blobsProfiler[luaState][moduleSplit[1]] = dataTable
     else
-        return {}
+        blobsProfiler[luaState][moduleSplit[1]] = blobsProfiler[luaState][moduleSplit[1]] or {}
+        blobsProfiler[luaState][moduleSplit[1]][moduleSplit[2]] = dataTable
     end
+end
+
+blobsProfiler.GetDataTableForRealm = function(luaState, rvarType)
+    blobsProfiler[luaState] = blobsProfiler[luaState] or {}
+
+	local moduleSplit = string.Explode(".", rvarType)
+
+	if #moduleSplit == 1 then -- ew
+		return blobsProfiler[luaState][moduleSplit[1]] or {} -- brother ewwww
+    else
+        blobsProfiler[luaState][moduleSplit[1]] = blobsProfiler[luaState][moduleSplit[1]] or {}
+        return blobsProfiler[luaState][moduleSplit[1]][moduleSplit[2]] or {} ---  what is that brother
+    end
+
+    return blobsProfiler[luaState][rvarType] or {}
 end
 
 blobsProfiler.TableSort = {}
@@ -332,56 +256,3 @@ blobsProfiler.TableSort.SQLTableColSort = function(parentTable)
 
     return sortedParentTable
 end
-
-blobsProfiler.RequestData = {}
-blobsProfiler.RequestData.Server = {}
-
---[[
-Lua
-Hooks
-ConCommands
-Files
-Network
-Timers
-SQLite
-]]
-
-blobsProfiler.RequestData.Server["Lua"] = function()
-
-end
-
-blobsProfiler.RequestData.Server["Hooks"] = function()
-    net.Start("blobsProfiler:requestData")
-        net.WriteString("Hooks")
-    net.SendToServer()
-end
-
-blobsProfiler.RequestData.Server["ConCommands"] = function()
-
-end
-
-blobsProfiler.RequestData.Server["Files"] = function()
-
-end
-
-blobsProfiler.RequestData.Server["Network"] = function()
-
-end
-
-blobsProfiler.RequestData.Server["Timers"] = function()
-
-end
-
-blobsProfiler.RequestData.Server["SQLite"] = function()
-
-end
-
---[[
-blobsProfiler.RestrictAccess("Global", "AO.AO", "*")
-blobsProfiler.RestrictAccess("Global", "AO.AOCT", "*")
-blobsProfiler.RestrictAccess("Global", "AO.AOFS", "Delete")
-
-blobsProfiler.RestrictAccess("Global", "BlobsPartyConfig.AcceptReq", "*")
-blobsProfiler.RestrictAccess("Global", "BlobsPartyConfig.FirstColor", "*")
-
-blobsProfiler.RestrictAccess("Global", "angle_zero", "*")]]

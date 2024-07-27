@@ -114,6 +114,7 @@ function PANEL:AnimSlide( anim, delta, data )
 	if ( anim.Started ) then
 		data.To = self:GetTall()
 		data.Visible = self.ChildNodes:IsVisible()
+		self.canExpand = false
 	end
 
 	if ( anim.Finished ) then
@@ -121,6 +122,7 @@ function PANEL:AnimSlide( anim, delta, data )
 		self.ChildNodes:SetVisible( data.Visible )
 		self:SetTall( data.To )
 		self:GetParentNode():ChildExpanded()
+		self.canExpand = true
 		return
 	end
 

@@ -67,34 +67,39 @@ net.Receive("blobsProfiler:requestData", function(l, ply)
     if not blobsProfiler.CanAccess(ply, "serverData") then return end
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData NW")
 
-    local dataModule = net.ReadString()
-    if not table.HasValue({"Lua", "Hooks", "ConCommands", "Files", "Network", "Timers", "SQLite"}, dataModule) then return end
-    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Valid module: ".. dataModule)
+    local rawDataModule = net.ReadString()
+    local moduleSplit = string.Explode(".", rawDataModule) -- [1] is parent, [2] is submodule
+    local dataModule = moduleSplit[1]
+    local subModule = nil
 
+	if #moduleSplit == 2 then -- ew
+        subModule = moduleSplit[2]
+    end
+
+    if not blobsProfiler.Modules[dataModule] then return end
+    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Valid module: ".. dataModule)
     if not blobsProfiler.CanAccess(ply, "serverData_".. dataModule) then return end
 
-    if dataModule == "Hooks" then
-        blobsProfiler.Log(blobsProfiler.L_DEBUG, "In hooks")
+    local dataTbl
+    if subModule then
+        if not blobsProfiler.Modules[dataModule].SubModules[subModule] then return end
+        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Valid ".. dataModule .." sub-module: ".. subModule)
+        if not blobsProfiler.CanAccess(ply, "serverData_".. dataModule .. "_" .. subModule) then return end
 
-        local hooksTable = {}
-        for hookName, hookEvents in pairs(hook.GetTable()) do
-            hooksTable[hookName] = hooksTable[hookName] or {}
-
-            for eventName, eventFunc in pairs(hookEvents) do
-                local debugInfo = debug.getinfo(eventFunc)
-                hooksTable[hookName][eventName] = debugInfo
-                hooksTable[hookName][eventName].func = tostring(eventFunc)
-            end
+        if blobsProfiler.Modules[dataModule].SubModules[subModule].PrepServerData then
+            dataTbl = blobsProfiler.Modules[dataModule].SubModules[subModule]:PrepServerData()
         end
-
-        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Hooks parsed")
-
-        --[[net.Start("blobsProfiler:requestData")
-            net.WriteString("Hooks")
-            net.WriteTable(hooksTable)
-        net.Send(ply)]]
-        netstream.Start(ply, "blobsProfiler:requestData", "Hooks", hooksTable)
-
-        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Hooks sent")
+    else
+        if blobsProfiler.Modules[dataModule].PrepServerData then
+            dataTbl = blobsProfiler.Modules[dataModule]:PrepServerData()
+        end
     end
+
+    if not dataTbl then
+        blobsProfiler.Log(blobsProfiler.L_NH_ERROR, "Module: ".. rawDataModule .." did not return data in PrepServerData!")
+        dataTbl = {}
+    end
+
+    netstream.Heavy(ply, "blobsProfiler:requestData", rawDataModule, dataTbl)
+    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawDataModule .." data sent to client!")
 end)
