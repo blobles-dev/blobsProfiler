@@ -18,7 +18,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
 ##### Modules
 | Module | Client | Server  |
 | ------------ | ------------ | ------------ |
-| _G explorer | :white_check_mark: | :wavy_dash: |
+| _G explorer | :white_check_mark: | :white_check_mark: |
 | Lua execute | :white_check_mark: | :white_check_mark: |
 | Hooks | :white_check_mark: | :white_check_mark: |
 | ConCommands  | :white_check_mark: | :white_check_mark: |
@@ -29,7 +29,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
 | Profiling | :x: | :x: |
 | SQLite Schema | :white_check_mark: | :white_check_mark: |
 | SQLite Data | :white_check_mark: | :white_check_mark: |
-| SQLite Execute | :x: | :x: |
+| SQLite Execute | :white_check_mark: | :white_check_mark: |
 | Remote SQL Schema | :x: | :x: |
 | Remote SQL Data | :x: | :x: |
 | Remote SQL Execute | :x: | :x: |
@@ -43,7 +43,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
   - :wavy_dash: Module-system (Code refactor)
 
 ### Known issues
-- SV globals will not fully transfer or fail completely due to some type encoding issues, for now it's limited to a few types.
+
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")

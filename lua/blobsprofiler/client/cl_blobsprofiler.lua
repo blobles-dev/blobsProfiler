@@ -114,9 +114,15 @@ local function viewPropertiesPopup(title, data, width, height)
 	return propertiesFrame
 end
 
-blobsProfiler.generateAceEditorPanel = function(parentPanel, content)
+blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode)
 	local dhtmlPanel = vgui.Create("DHTML", parentPanel)
 	content = content or [[print("Hello world!")]]
+	editorMode = editorMode or "Lua"
+	local useMode = "ace/mode/glua"
+
+	if editorMode == "SQL" then
+		useMode = "ace/mode/sql"
+	end
 
 	dhtmlPanel:SetHTML([[
 		<!DOCTYPE html>
@@ -137,7 +143,7 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content)
 				<script src="https://cdn.hbn.gg/thirdparty/mode-glua.js" type="text/javascript"></script>
 				<script>
 					var editor = ace.edit("editor");
-					editor.session.setMode("ace/mode/glua");
+					editor.session.setMode("]].. useMode ..[[");
 					editor.setOptions({
 					enableBasicAutocompletion: true,
 					enableSnippets: true,

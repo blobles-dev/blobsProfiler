@@ -60,6 +60,69 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
     RefreshButton = "Refresh"
 })
 
+local function splitAndProcessQueries(query) -- why the fuck did I bother
+    local results = {}
+    local queries = string.Explode(";", query)
+
+    for _, singleQuery in ipairs(queries) do
+		singleQuery = string.Trim(singleQuery)
+
+		if singleQuery ~= "" then
+			local queryType = string.match(singleQuery:upper(), "^(%w+)")
+			local result
+			local affectedRowsStr
+			local affectedRows
+
+			if queryType == "SELECT" or queryType == "PRAGMA" or queryType == "EXPLAIN" then
+				result = sql.Query(singleQuery)
+				if result == false then
+                    table.insert(results, {type = "ERROR", message=sql.LastError(), query = singleQuery})
+                else
+                    table.insert(results, {type = queryType, data = result, query = singleQuery})
+                end
+			elseif queryType == "INSERT" or queryType == "UPDATE" or queryType == "DELETE" then
+				result = sql.Query(singleQuery)
+				affectedRowsStr = sql.QueryValue("SELECT changes()")
+				affectedRows = tonumber(affectedRowsStr) or 0
+				if result == false then
+					table.insert(results, {type = "ERROR", message = sql.LastError(), query = singleQuery})
+				else
+					table.insert(results, {type = queryType, message = "Rows affected: " .. affectedRows, rowsAffected = affectedRows, query = singleQuery})
+				end
+			elseif queryType == "COMMIT" or queryType == "ROLLBACK" or queryType == "CREATE" or queryType == "ALTER" or queryType == "DROP" then
+				local success = sql.Query(singleQuery)
+				if success == false then
+					table.insert(results, {type = "ERROR", message = sql.LastError(), query = singleQuery})
+				else
+					table.insert(results, {type = queryType, message = queryType .. " operation successful", query = singleQuery})
+				end
+			elseif queryType == "SAVEPOINT" then
+				local savepointName = string.match(singleQuery, "SAVEPOINT%s+([%w_]+)")
+				if savepointName then
+					local success = sql.Query("SAVEPOINT " .. savepointName)
+					if success == false then
+						table.insert(results, {type = "ERROR", message = sql.LastError(), query = singleQuery})
+					else
+						table.insert(results, {type = "SAVEPOINT", message = "Savepoint created: " .. savepointName, query = singleQuery})
+					end
+				else
+					table.insert(results, {type = "ERROR", message = "Savepoint name not specified", query = singleQuery})
+				end
+			else
+                local tryInvalid = sql.Query(singleQuery)
+
+                if tryInvalid == false then
+                    table.insert(results, {type = "ERROR", message = sql.LastError(), query = singleQuery})
+                else
+                    table.insert(results, {type = "ERROR", message = "UNHANDLED SQL QUERY TYPE: ".. queryType, query = singleQuery})
+                end
+			end
+		end
+    end
+
+    return results
+end
+
 if SERVER then
     util.AddNetworkString("blobsProfiler:requestSQLiteData")
 
@@ -83,6 +146,22 @@ if SERVER then
                 net.WriteTable(getSQLData)
             net.Send(ply)            
         end
+    end)
+
+    util.AddNetworkString("blobsProfiler:runSQLite")
+
+    net.Receive("blobsProfiler:runSQLite", function(len, ply)
+        if not blobsProfiler.CanAccess(ply, "serverData") then return end
+        if not blobsProfiler.CanAccess(ply, "serverData_SQLite") then return end
+        if not blobsProfiler.CanAccess(ply, "serverData_SQLite_Execute") then return end
+
+        local sqlQuery = net.ReadString()
+
+        local proccessQuery = splitAndProcessQueries(sqlQuery)
+
+        net.Start("blobsProfiler:runSQLite")
+            net.WriteTable(proccessQuery or {}) -- todo: use chunked sending
+        net.Send(ply)
     end)
 else
     net.Receive("blobsProfiler:requestSQLiteData", function()
@@ -133,6 +212,13 @@ else
             end
             tableDataListView:AddLine(unpack(dataBuild))
         end
+    end)
+
+    net.Receive("blobsProfiler:runSQLite", function()
+        local queryResults = net.ReadTable()
+
+        local subModuleRef = blobsProfiler.Modules.SQLite.SubModules.Execute
+        subModuleRef.ServerTab.handleQueries("Server", queryResults)
     end)
 end
 
@@ -256,4 +342,126 @@ blobsProfiler.RegisterSubModule("SQLite", "Data", {
 blobsProfiler.RegisterSubModule("SQLite", "Execute", {
     Icon = "icon16/database_go.png",
     OrderPriority = 3,
+    CustomPanel = function(luaState, parentPanel)
+        local dhtmlPanel = blobsProfiler.generateAceEditorPanel(parentPanel, "", "SQL")
+        dhtmlPanel:Dock(FILL)
+
+        local resultContainer = vgui.Create("DPropertySheet", parentPanel)
+        resultContainer:SetVisible(false)
+
+        local executeButton = vgui.Create("DButton", parentPanel)
+
+        parentPanel.handleQueries = function(luaStateHQ, dataTable)
+            local realmString = string.lower(luaStateHQ)
+            if not blobsProfiler.CanAccess(ply, realmString .. "Data") then return end
+            if not blobsProfiler.CanAccess(ply, realmString .. "Data_SQLite") then return end
+            if not blobsProfiler.CanAccess(ply, realmString .. "Data_SQLite_Execute") then return end
+
+            if resultContainer and IsValid(resultContainer) then
+                resultContainer:Remove()
+            end
+            
+            resultContainer = vgui.Create("DPropertySheet", parentPanel)
+            resultContainer:SetVisible(false)
+
+            for queryID, queryTable in ipairs(dataTable) do
+                local queryType = queryTable.type or "ERROR"
+                local isError = queryType == "ERROR" or false
+
+                local panel1 = vgui.Create( "DPanel", resultContainer )
+
+                if queryType == "ERROR" then -- TODO: some of this can be condensed
+                    local queryResult = vgui.Create("DPanel", panel1)
+                    queryResult:Dock(FILL)
+                    queryResult.Paint = function(s,w,h) 
+                        draw.SimpleTextOutlined(queryTable.query, "DermaDefault", 5, 2, Color(255,80,80), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 1, color_black)
+                        draw.SimpleText(queryTable.message or "Unknown Error", "DermaDefault", 5, 20, color_black, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                    end
+                elseif queryType == "SELECT" or queryType == "PRAGMA" or queryType == "EXPLAIN" then
+                    local queryResult = vgui.Create("DListView", panel1)
+                    queryResult:Dock(FILL)
+
+                    if queryTable.data and #queryTable.data >= 1 then
+                        local keys = table.GetKeys(queryTable.data[1]) -- idk if this is good enough
+                        for _, keyName in ipairs(keys) do
+                            queryResult:AddColumn(keyName)
+                        end
+
+                        for i, tblRecord in ipairs(queryTable.data) do
+                            local lineData = {}
+                            for _, key in ipairs(keys) do
+                                table.insert(lineData, tblRecord[key])
+                            end
+                            queryResult:AddLine(unpack(lineData))
+                        end
+                    end
+
+                    local querySummary = vgui.Create("DPanel", panel1)
+                    querySummary:SetTall(20)
+                    if queryType == "SELECT" and queryTable.data then
+                        querySummary:SetTall(32)
+                    end
+                    querySummary:Dock(TOP)
+                    querySummary.Paint = function(s,w,h)
+                        draw.SimpleTextOutlined(queryTable.query, "DermaDefault", 5, 2, Color(0,255,0), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 1, color_black)
+                        if queryType == "SELECT" and queryTable.data then
+                            draw.SimpleText("Rows: " .. (queryTable.data and #queryTable.data or "0"), "DermaDefault", 5, 16, color_black, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                        end
+                    end
+                elseif queryType == "INSERT" or queryType == "UPDATE" or queryType == "DELETE"
+                or  queryType == "COMMIT" or queryType == "ROLLBACK" or queryType == "CREATE" or queryType == "ALTER" or queryType == "DROP"
+                or queryType == "SAVEPOINT" then
+                    local queryResult = vgui.Create("DPanel", panel1)
+                    queryResult:Dock(FILL)
+                    queryResult.Paint = function(s,w,h) 
+                        draw.SimpleTextOutlined(queryTable.query, "DermaDefault", 5, 2, Color(0,255,0), TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 1, color_black)
+                        draw.SimpleText(queryTable.message, "DermaDefault", 5, 16, color_black, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+                    end
+                else
+                    --- ???
+                    blobsProfiler.Log(blobsProfiler.L_NH_ERROR, "Unhandled SQL query type: ".. (queryTable.type or "UNKNOWN"))
+                    PrintTable(queryTable)
+                end
+
+                local qTab
+                if isError then
+                    qTab = resultContainer:AddSheet( "Query "..queryID, panel1, "icon16/database_error.png")
+                    qTab.Tab.PaintOver = function(self, w, h)                        
+                        surface.SetDrawColor(255, 0, 0, 50)
+                        surface.DrawRect(0, 0, w, h)
+                    end
+                else
+                    qTab = resultContainer:AddSheet( "Query "..queryID, panel1, "icon16/database.png")
+                end
+
+                qTab.Tab:SetTooltip(queryTable.query)
+            end
+
+            resultContainer:SetVisible(true)
+            resultContainer:Dock(BOTTOM)
+            resultContainer:SetTall(200)
+            executeButton:Dock(BOTTOM)
+        end
+
+        dhtmlPanel:AddFunction("gmod", "receiveEditorContent", function(value)
+            if luaState == "Client" then -- 'data' indicates a response from SV, ASSUME SV IF data IS PASSED!
+                local results = splitAndProcessQueries(value)
+                parentPanel.handleQueries("Client", results)
+            elseif luaState == "Server" then
+                net.Start("blobsProfiler:runSQLite")
+                    net.WriteString(value)
+                net.SendToServer()
+            end
+        end)
+        
+        executeButton:Dock(BOTTOM)
+        executeButton:SetText("Execute SQL")
+
+        executeButton.DoClick = function()
+            dhtmlPanel:RunJavascript([[
+                var value = getEditorValue();
+                gmod.receiveEditorContent(value);
+            ]])
+        end
+    end
 })
