@@ -51,7 +51,7 @@ end
 
 blobsProfiler.RegisterModule("Files", {
     Icon = "icon16/folder_page.png",
-    OrderPriority = 4,
+    OrderPriority = 5,
     UpdateRealmData = function(luaState)
         if luaState == "Client" then
             local allFiles, newFiles = blobsProfiler.ScanGLoadedFiles()

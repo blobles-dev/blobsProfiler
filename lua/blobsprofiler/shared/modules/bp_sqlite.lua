@@ -1,6 +1,6 @@
 blobsProfiler.RegisterModule("SQLite", {
     Icon = "icon16/database.png",
-    OrderPriority = 7
+    OrderPriority = 8
 })
 
 local function buildSQLiteSchemaTable()

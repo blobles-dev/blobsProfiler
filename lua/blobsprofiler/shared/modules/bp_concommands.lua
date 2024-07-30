@@ -1,6 +1,6 @@
 blobsProfiler.RegisterModule("ConCommands", {
     Icon = "icon16/application_xp_terminal.png",
-    OrderPriority = 3,
+    OrderPriority = 4,
     UpdateRealmData = function(luaState)
         if luaState == "Client" then
             local concmdTbl = concommand.GetTable()

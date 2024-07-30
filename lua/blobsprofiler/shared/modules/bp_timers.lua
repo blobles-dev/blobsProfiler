@@ -14,7 +14,7 @@ end
 
 blobsProfiler.RegisterModule("Timers", {
     Icon = "icon16/clock.png",
-    OrderPriority = 6,
+    OrderPriority = 7,
     UpdateRealmData = function(luaState)
         if luaState == "Client" then
             -- why dont we just set it straight away ffs

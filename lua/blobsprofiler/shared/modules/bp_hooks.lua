@@ -1,6 +1,6 @@
 blobsProfiler.RegisterModule("Hooks", {
     Icon = "icon16/brick_add.png",
-    OrderPriority = 2,
+    OrderPriority = 3,
     UpdateRealmData = function(luaState)
         if luaState == "Client" then
             local hooksTable = {}

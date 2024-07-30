@@ -925,7 +925,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	return childNode
 end
 
-local function buildDTree(luaState, parentPanel, rvarType)
+local function buildDTree(luaState, parentPanel, rvarType, dataTableOverride)
 	local dTree = vgui.Create("BP_DTree", parentPanel)
 	dTree:Dock(FILL)
 	--dTree:SetVisible(false)
@@ -939,7 +939,13 @@ local function buildDTree(luaState, parentPanel, rvarType)
 		varType = subModuleSplit[2] -- ew
 	end
 
-	local dataTable = blobsProfiler.GetDataTableForRealm(luaState, rvarType) or {}
+	local dataTable
+	
+	if dataTableOverride then
+		dataTable = dataTableOverride
+	else
+		dataTable = blobsProfiler.GetDataTableForRealm(luaState, rvarType) or {}
+	end
 
 	if varType == "Globals" then -- TODO: make this shit modular
 		for key, value in pairs(dataTable) do
@@ -965,41 +971,6 @@ local function buildDTree(luaState, parentPanel, rvarType)
 				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special].nodeData = nodeData
 			end
 		end
-	elseif varType == "Hooks" then
-		for k, v in pairs(dataTable) do
-			table.insert(rootNodes, {
-				key = k,
-				value = v
-			})
-		end
-	elseif varType == "ConCommands" then
-		for k, v in pairs(dataTable) do
-			table.insert(rootNodes, {
-				key = k,
-				value = v
-			})
-		end
-	elseif varType == "Files" then
-		for k, v in pairs(dataTable) do
-			table.insert(rootNodes, {
-				key = k,
-				value = v
-			})
-		end
-	elseif varType == "Network" then
-		for k, v in pairs(dataTable) do
-			table.insert(rootNodes, {
-				key = k,
-				value = v
-			})
-		end
-	elseif varType == "Timers" then
-		for k, v in pairs(dataTable) do
-			table.insert(rootNodes, {
-				key = k,
-				value = v
-			})
-		end
 	elseif rvarType == "SQLite.Schema" then
 		if dataTable.Tables and dataTable.Indices then
 			table.insert(rootNodes, {
@@ -1010,6 +981,13 @@ local function buildDTree(luaState, parentPanel, rvarType)
 			table.insert(rootNodes, {
 				key = "Indices",
 				value = blobsProfiler.TableSort.KeyAlphabetical(dataTable.Indices)
+			})
+		end
+	else
+		for k, v in pairs(dataTable) do
+			table.insert(rootNodes, {
+				key = k,
+				value = v
 			})
 		end
 	end
@@ -1033,11 +1011,11 @@ if blobsProfiler.Menu.MenuFrame && IsValid(blobsProfiler.Menu.MenuFrame) then
 	blobsProfiler.Menu.MenuFrame:Remove() -- kill on lua refresh
 end
 
-local function profileLog(realm, event)
+--[[local function profileLog(realm, event)
 	local luaCallInfo = debug.getinfo(3, "fnS")
 	if not blobsProfiler.Client.Profile.Raw[luaCallInfo.func] then return end
 	print(event, luaCallInfo.name, luaCallInfo.func, luaCallInfo.source)
-end
+end]]
 
 blobsProfiler.Tabs = {}
 blobsProfiler.Tabs.Client = {}
@@ -1106,7 +1084,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	local tabMenu = vgui.Create( "DPropertySheet", blobsProfiler.Menu.MenuFrame)
 	tabMenu:Dock( FILL )
 	
-	blobsProfiler.Menu.MenuFrame.ProfilerPanel = vgui.Create("DPanel", blobsProfiler.Menu.MenuFrame)
+	--[[blobsProfiler.Menu.MenuFrame.ProfilerPanel = vgui.Create("DPanel", blobsProfiler.Menu.MenuFrame)
 	local profilerPanel = blobsProfiler.Menu.MenuFrame.ProfilerPanel
 	profilerPanel:Dock(RIGHT)
 	profilerPanel:DockMargin(5, 10, 0, 0)
@@ -1126,7 +1104,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 	startProfiling:SetTall(30)
 	startProfiling.DoClick = function()
 		debug.sethook(function(e) profileLog("Client", e) end, "cr")
-	end
+	end]]
 	
 	local tabClient = vgui.Create("DPropertySheet", tabMenu)
 	tabMenu:AddSheet("Client", tabClient, "icon16/application.png")
@@ -1253,10 +1231,16 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 				moduleTab.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 					if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen then
-						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState)
+						local useTab
+						if luaState == "Client" then
+							useTab = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ClientTab
+						else
+							useTab = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ServerTab
+						end
+						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState, useTab)
 					end
 
-					if not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
+					if not blobsProfiler[luaState][moduleName] or not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
 						if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].UpdateRealmData then
 							blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()]:UpdateRealmData(luaState)
 							if luaState == "Server" then
@@ -1324,7 +1308,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 		if pnlNew:GetText() == "Server" and blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] then
 			if firstSubModule[subActiveTab:GetText()].data.OnOpen then
-				firstSubModule[subActiveTab:GetText()].data.OnOpen("Server")
+				firstSubModule[subActiveTab:GetText()].data.OnOpen("Server", firstSubModule[subActiveTab:GetText()].data.ServerTab)
 			end
 
 			if firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
@@ -1344,7 +1328,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		end
 
 		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
-			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Client")
+			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Client", blobsProfiler.Modules[pnlNew:GetText()].ClientTab)
 		end
 	end
 
@@ -1358,12 +1342,12 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		end
 
 		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
-			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Server")
+			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Server", blobsProfiler.Modules[pnlNew:GetText()].ServerTab)
 		end
 		
 		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] then
 			if firstSubModule[pnlNew:GetText()].data.OnOpen then
-				firstSubModule[pnlNew:GetText()].data.OnOpen("Server")
+				firstSubModule[pnlNew:GetText()].data.OnOpen("Server", firstSubModule[pnlNew:GetText()].data.ServerTab)
 			end
 			if firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end

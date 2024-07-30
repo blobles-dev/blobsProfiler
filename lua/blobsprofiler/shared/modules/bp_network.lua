@@ -1,6 +1,6 @@
 blobsProfiler.RegisterModule("Network", {
     Icon = "icon16/drive_network.png",
-    OrderPriority = 5,
+    OrderPriority = 6,
     UpdateRealmData = function(luaState)
         if luaState == "Client" then    
             local netRecieversData = {}

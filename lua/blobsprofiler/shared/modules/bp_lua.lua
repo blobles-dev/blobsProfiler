@@ -4,7 +4,7 @@ end
 
 blobsProfiler.RegisterModule("Lua", {
     Icon = "icon16/world.png",
-    OrderPriority = 1,
+    OrderPriority = 2,
 })
 
 --[[local validTypes = {
