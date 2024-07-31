@@ -241,8 +241,8 @@ net.Receive("blobsProfiler:sendSourceChunk", function()
     end
 end)
 
-blobsProfiler.Menu.RCFunctions = {} -- TODO: modularisation?
-blobsProfiler.Menu.RCFunctions["Globals"] = {
+blobsProfiler.Menu.RCFunctions = {}
+blobsProfiler.Menu.RCFunctions_DEFAULT = {
 	["string"] = {
 		{
 			name = "Print",
@@ -341,261 +341,6 @@ blobsProfiler.Menu.RCFunctions["Globals"] = {
 		}
 	}
 }
-blobsProfiler.Menu.RCFunctions["Hooks"] = blobsProfiler.Menu.RCFunctions["Globals"]
-blobsProfiler.Menu.RCFunctions["ConCommands"] = blobsProfiler.Menu.RCFunctions["Globals"]
-blobsProfiler.Menu.RCFunctions["Files"] = {
-	["table"] = {
-		{
-			name = "Print path",
-			func = function(ref, node)
-				local path = ""
-				local function apparentParentDir(child)
-					if child.parentNode then
-						path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
-						apparentParentDir(child.parentNode)
-					else
-						path = child:GetText() .. "/" .. path
-					end
-				end
-				
-				apparentParentDir(node)
-
-				print(path)
-			end,
-			icon = "icon16/application_osx_terminal.png"
-		},
-		{
-			name = "Copy path",
-			func = function(ref, node)
-				local path = ""
-				local function apparentParentDir(child)
-					if child.parentNode then
-						path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
-						apparentParentDir(child.parentNode)
-					else
-						path = child:GetText() .. "/" .. path
-					end
-				end
-				
-				apparentParentDir(node)
-
-				SetClipboardText(path)
-			end,
-			icon = "icon16/page_copy.png"
-		}
-	},
-	["string"] = {
-		{
-			name = "View source",
-			func = function(ref, node)
-				local path = ""
-				local function apparentParentDir(child)
-					if child.parentNode then
-						path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
-						apparentParentDir(child.parentNode)
-					else
-						path = child:GetText() .. "/" .. path
-					end
-				end
-				
-				apparentParentDir(node)
-
-				net.Start("blobsProfiler:requestSource")
-					net.WriteString(path)
-				net.SendToServer()
-			end,
-			icon = "icon16/script_code.png"
-		},
-		{
-			name = "Print path",
-			func = function(ref, node)
-				local path = ""
-				local function apparentParentDir(child)
-					if child.parentNode then
-						path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
-						apparentParentDir(child.parentNode)
-					else
-						path = child:GetText() .. "/" .. path
-					end
-				end
-				
-				apparentParentDir(node)
-
-				print(path)
-			end,
-			icon = "icon16/application_osx_terminal.png"
-		},
-		{
-			name = "Copy path",
-			func = function(ref, node)
-				local path = ""
-				local function apparentParentDir(child)
-					if child.parentNode then
-						path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
-						apparentParentDir(child.parentNode)
-					else
-						path = child:GetText() .. "/" .. path
-					end
-				end
-				
-				apparentParentDir(node)
-
-				SetClipboardText(path)
-			end,
-			icon = "icon16/page_copy.png"
-		}
-	}
-}
-blobsProfiler.Menu.RCFunctions["Network"] = blobsProfiler.Menu.RCFunctions["Globals"]
-blobsProfiler.Menu.RCFunctions["Timers"] = {
-	["table"] = { -- root node, timer identifier
-		{
-			name = "Print",
-			func = function(ref, node)
-				print(ref.value)
-				print(node.GlobalPath)
-			end,
-			icon = "icon16/application_osx_terminal.png",
-			requiredAccess = "Read"
-		},
-		{ -- Pause/Resume timer
-			name = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then return end
-				local timeLeft = timer.TimeLeft(node.GlobalPath)
-				if timeLeft < 0 then
-					return "Resume"
-				else
-					return "Pause"
-				end
-			end,
-			func = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then return end
-				local timeLeft = timer.TimeLeft(node.GlobalPath)
-				if timeLeft < 0 then
-					timer.UnPause(node.GlobalPath)
-					node.Icon:SetImage("icon16/clock_stop.png")
-				else
-					timer.Pause(node.GlobalPath)
-					node.Icon:SetImage("icon16/clock_play.png")
-				end
-			end,
-			onLoad = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then return end
-				local timeLeft = timer.TimeLeft(node.GlobalPath)
-				if timeLeft < 0 then
-					node.Icon:SetImage("icon16/clock_stop.png")
-				else
-					node.Icon:SetImage("icon16/clock_play.png")
-				end
-			end,
-			icon = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then return end
-				local timeLeft = timer.TimeLeft(node.GlobalPath)
-				if timeLeft < 0 then
-					return "icon16/clock_stop.png"
-				else
-					return "icon16/clock_play.png"
-				end
-			end,
-			requiredAccess = "Write"
-		},
-		{ -- Delete timer
-			name = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then node.Label:SetTextColor(Color(255,0,0)) return end
-				return "Delete"
-			end,
-			func = function(ref, node)
-				timer.Remove(node.GlobalPath)
-				node.Label:SetTextColor(Color(255,0,0))
-				node.Icon:SetImage("icon16/clock_delete.png")
-			end,
-			onLoad = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then
-					node.Label:SetTextColor(Color(255,0,0))
-					node.Icon:SetImage("icon16/clock_delete.png")
-				end
-			end,
-			icon = "icon16/clock_delete.png",
-			requiredAccess = "Delete"
-		},
-		{ -- Remove timer reference
-			name = function(ref, node)
-				if not timer.Exists(node.GlobalPath) then return "Remove reference" end
-			end,
-			func = function(ref, node)
-				blobsProfiler.createdTimers[node.GlobalPath] = nil 
-				node:Remove()
-			end,
-			icon = "icon16/clock_red.png",
-			requiredAccess = "Delete"
-		}
-	}
-}
-blobsProfiler.Menu.RCFunctions["SQLite.Schema"] = { -- TODO: make submodules work with this
-	["table"] = {
-		{
-			name = "SQL Create statement",
-			submenu = {
-				{
-					name = "Print",
-					func = function(ref, node)
-						local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
-						print(grabSQLCreate)
-					end,
-					icon = "icon16/application_osx_terminal.png"
-				},
-				{
-					name = "Copy to clipboard",
-					func = function(ref, node)
-						local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
-						SetClipboardText(grabSQLCreate)
-					end,
-					icon = "icon16/page_copy.png"
-				}
-			},
-			icon = "icon16/table_lightning.png",
-			condition = function(ref, node, realm)
-				if not blobsProfiler[realm].SQLite.Schema.Tables then return false end
-
-				return blobsProfiler[realm].SQLite.Schema.Tables[ref.key]
-			end
-		}
-		--[[{
-			name = "Expand children",
-			func = function(ref, node)
-				local function expandChildren(panel)
-					if panel.Expander and (panel.GetExpanded and not panel:GetExpanded()) then
-						panel.Expander:DoClick()
-					end
-
-					for k, v in pairs(panel:GetChildren()) do
-						expandChildren(v)
-					end
-				end
-
-				expandChildren(node)
-			end,
-			icon = "icon16/table_multiple.png"
-		},
-		{
-			name = "Collapse children",
-			func = function(ref, node)
-				local function expandChildren(panel)
-					if panel.Expander and (panel.GetExpanded and panel:GetExpanded()) then
-						panel.Expander:DoClick()
-					end
-
-					for k, v in pairs(panel:GetChildren()) do
-						expandChildren(v)
-					end
-				end
-
-				expandChildren(node)
-			end,
-			icon = "icon16/table_multiple.png"
-		},]]
-	}
-}
 
 blobsProfiler.Menu.TypeFolders = {}
 blobsProfiler.Menu.TypeFolders.Client = {}
@@ -689,8 +434,9 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 				childNode.LazyLoaded = true
 			end
 
-			if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][dataType] then				
-				for k,v in ipairs(blobsProfiler.Menu.RCFunctions[varType][dataType]) do
+			local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
+			if RCTable and RCTable[dataType] then				
+				for k,v in ipairs(RCTable[dataType]) do
 					if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
 						continue
 					end
@@ -769,11 +515,12 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	childNode.DoRightClick = function()
 		childNode:InternalDoClick()
 
-		if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then
+		local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
+		if RCTable and RCTable[visualDataType] then
 			blobsProfiler.Menu.RCMenu = DermaMenu()
 			local RCMenu = blobsProfiler.Menu.RCMenu
 			
-			for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
+			for _, rcM in ipairs(RCTable[visualDataType]) do
 				if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
 					continue
 				end
@@ -843,8 +590,9 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	end
 
-	if blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then				
-		for k,v in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
+	local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
+	if RCTable and RCTable[visualDataType] then				
+		for k,v in ipairs(RCTable[visualDataType]) do
 			if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
 				continue
 			end
@@ -901,10 +649,11 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 				visualDataType = nodeValue.fakeVarType -- every day we stray further away from god
 			end
 
+			local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
 			if dataType == "table" and childNode.Expander and childNode.Expander.SetExpanded then
 				childNode:SetExpanded(not childNode:GetExpanded())
-			elseif blobsProfiler.Menu.RCFunctions[varType] and blobsProfiler.Menu.RCFunctions[varType][visualDataType] then
-				for _, rcM in ipairs(blobsProfiler.Menu.RCFunctions[varType][visualDataType]) do
+			elseif RCTable and RCTable[visualDataType] then
+				for _, rcM in ipairs(RCTable[visualDataType]) do
 					if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
 						continue
 					end

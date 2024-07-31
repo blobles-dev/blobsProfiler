@@ -57,7 +57,72 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
     BuildPanel = function(luaState, parentPanel)
 		blobsProfiler.buildDTree(luaState, parentPanel, "SQLite.Schema")
     end,
-    RefreshButton = "Refresh"
+    RefreshButton = "Refresh",
+    RCFunctions = {
+        ["table"] = {
+            {
+                name = "SQL Create statement",
+                submenu = {
+                    {
+                        name = "Print",
+                        func = function(ref, node)
+                            local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
+                            print(grabSQLCreate)
+                        end,
+                        icon = "icon16/application_osx_terminal.png"
+                    },
+                    {
+                        name = "Copy to clipboard",
+                        func = function(ref, node)
+                            local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
+                            SetClipboardText(grabSQLCreate)
+                        end,
+                        icon = "icon16/page_copy.png"
+                    }
+                },
+                icon = "icon16/table_lightning.png",
+                condition = function(ref, node, realm)
+                    if not blobsProfiler[realm].SQLite.Schema.Tables then return false end
+    
+                    return blobsProfiler[realm].SQLite.Schema.Tables[ref.key]
+                end
+            }
+            --[[{
+                name = "Expand children",
+                func = function(ref, node)
+                    local function expandChildren(panel)
+                        if panel.Expander and (panel.GetExpanded and not panel:GetExpanded()) then
+                            panel.Expander:DoClick()
+                        end
+    
+                        for k, v in pairs(panel:GetChildren()) do
+                            expandChildren(v)
+                        end
+                    end
+    
+                    expandChildren(node)
+                end,
+                icon = "icon16/table_multiple.png"
+            },
+            {
+                name = "Collapse children",
+                func = function(ref, node)
+                    local function expandChildren(panel)
+                        if panel.Expander and (panel.GetExpanded and panel:GetExpanded()) then
+                            panel.Expander:DoClick()
+                        end
+    
+                        for k, v in pairs(panel:GetChildren()) do
+                            expandChildren(v)
+                        end
+                    end
+    
+                    expandChildren(node)
+                end,
+                icon = "icon16/table_multiple.png"
+            },]]
+        }
+    }
 })
 
 local function splitAndProcessQueries(query) -- why the fuck did I bother

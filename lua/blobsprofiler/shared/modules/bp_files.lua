@@ -73,5 +73,108 @@ blobsProfiler.RegisterModule("Files", {
     BuildPanel = function(luaState, parentPanel)
 		blobsProfiler.buildDTree(luaState, parentPanel, "Files")
     end,
-    RefreshButton = "Re-scan"
+    RefreshButton = "Re-scan",
+    RCFunctions = {
+        ["table"] = {
+            {
+                name = "Print path",
+                func = function(ref, node)
+                    local path = ""
+                    local function apparentParentDir(child)
+                        if child.parentNode then
+                            path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
+                            apparentParentDir(child.parentNode)
+                        else
+                            path = child:GetText() .. "/" .. path
+                        end
+                    end
+                    
+                    apparentParentDir(node)
+    
+                    print(path)
+                end,
+                icon = "icon16/application_osx_terminal.png"
+            },
+            {
+                name = "Copy path",
+                func = function(ref, node)
+                    local path = ""
+                    local function apparentParentDir(child)
+                        if child.parentNode then
+                            path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
+                            apparentParentDir(child.parentNode)
+                        else
+                            path = child:GetText() .. "/" .. path
+                        end
+                    end
+                    
+                    apparentParentDir(node)
+    
+                    SetClipboardText(path)
+                end,
+                icon = "icon16/page_copy.png"
+            }
+        },
+        ["string"] = {
+            {
+                name = "View source",
+                func = function(ref, node)
+                    local path = ""
+                    local function apparentParentDir(child)
+                        if child.parentNode then
+                            path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
+                            apparentParentDir(child.parentNode)
+                        else
+                            path = child:GetText() .. "/" .. path
+                        end
+                    end
+                    
+                    apparentParentDir(node)
+    
+                    net.Start("blobsProfiler:requestSource")
+                        net.WriteString(path)
+                    net.SendToServer()
+                end,
+                icon = "icon16/script_code.png"
+            },
+            {
+                name = "Print path",
+                func = function(ref, node)
+                    local path = ""
+                    local function apparentParentDir(child)
+                        if child.parentNode then
+                            path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
+                            apparentParentDir(child.parentNode)
+                        else
+                            path = child:GetText() .. "/" .. path
+                        end
+                    end
+                    
+                    apparentParentDir(node)
+    
+                    print(path)
+                end,
+                icon = "icon16/application_osx_terminal.png"
+            },
+            {
+                name = "Copy path",
+                func = function(ref, node)
+                    local path = ""
+                    local function apparentParentDir(child)
+                        if child.parentNode then
+                            path = child.Label:GetText() .. (path ~= "" and "/" or "") .. path
+                            apparentParentDir(child.parentNode)
+                        else
+                            path = child:GetText() .. "/" .. path
+                        end
+                    end
+                    
+                    apparentParentDir(node)
+    
+                    SetClipboardText(path)
+                end,
+                icon = "icon16/page_copy.png"
+            }
+        }
+    }
 })

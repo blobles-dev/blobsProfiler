@@ -13,3 +13,13 @@ blobsProfiler.RegisterSubModule = function(ParentModule, Name, ModuleConfig)
 
     print("[blobsProfiler] ".. ParentModule .." SubModule: ".. Name .." - Loaded!")
 end
+
+blobsProfiler.GetRCFunctionsTable = function(fullModule)
+    local splitModuleName = string.Explode(".", fullModule)
+
+    if #splitModuleName == 1 then
+        return blobsProfiler.Modules[splitModuleName[1]].RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
+    else
+        return blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
+    end
+end
