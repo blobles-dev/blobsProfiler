@@ -971,6 +971,39 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 									draw.RoundedBoxEx(4, 0, startY, w, dynamicH, Color(0,255,0,50), true, true)
 								end
+							elseif blobsProfiler.Modules[moduleName].SubModules[subModuleName].retrievingData then
+								local marqueeSpeed = 50  -- Speed of the marquee movement in pixels per second
+								local marqueeWidth = 50  -- Width of the marquee rectangle
+								local currentTime = CurTime()
+							
+								local marqueeX = (currentTime * marqueeSpeed) % (w + marqueeWidth) - marqueeWidth
+							
+								local dynamicH = (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) and h-7 or h -- this is SO dumb
+								local startY = (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) and 0 or 1
+							
+								local visibleWidth = marqueeWidth
+								local drawLeftRound = false
+								local drawRightRound = false
+							
+								if marqueeX < 0 then -- off screen - left side
+									visibleWidth = marqueeWidth + marqueeX
+									marqueeX = 0
+									drawLeftRound = true
+								elseif marqueeX + marqueeWidth > w then -- off screen - right side
+									visibleWidth = w - marqueeX
+									drawRightRound = true
+								end
+							
+								draw.RoundedBoxEx(
+									4,
+									marqueeX,
+									startY,
+									visibleWidth,
+									dynamicH,
+									Color(255, 255, 0, 50),
+									drawLeftRound,  -- Top-left rounding if the left edge is offscreen
+									drawRightRound  -- Top-right rounding if the right edge is offscreen
+								)
 							end
 						end
 					end
@@ -1063,6 +1096,39 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 							local startY = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and 0 or 1
 							draw.RoundedBoxEx(4, 0, startY, w, dynamicH, Color(0,255,0,50), true, true)
 						end
+					elseif blobsProfiler.Modules[moduleName].retrievingData then
+						local marqueeSpeed = 50  -- Speed of the marquee movement in pixels per second
+						local marqueeWidth = 50  -- Width of the marquee rectangle
+						local currentTime = CurTime()
+					
+						local marqueeX = (currentTime * marqueeSpeed) % (w + marqueeWidth) - marqueeWidth
+					
+						local dynamicH = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and h-7 or h -- this is SO dumb
+						local startY = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and 0 or 1
+					
+						local visibleWidth = marqueeWidth
+						local drawLeftRound = false
+						local drawRightRound = false
+					
+						if marqueeX < 0 then
+							visibleWidth = marqueeWidth + marqueeX
+							marqueeX = 0
+							drawLeftRound = true
+						elseif marqueeX + marqueeWidth > w then
+							visibleWidth = w - marqueeX
+							drawRightRound = true
+						end
+					
+						draw.RoundedBoxEx(
+							4,
+							marqueeX,
+							startY,
+							visibleWidth,
+							dynamicH,
+							Color(255, 255, 0, 50),
+							drawLeftRound,  -- Top-left rounding if the left edge is offscreen
+							drawRightRound  -- Top-right rounding if the right edge is offscreen
+						)
 					end
 				end
 			end
