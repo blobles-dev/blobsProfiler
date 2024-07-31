@@ -98,7 +98,7 @@ blobsProfiler.RegisterSubModule("Lua", "Globals", {
 
 		blobsProfiler.buildDTree(luaState, parentPanel, "Lua.Globals")
     end,
-    --RefreshButton = "Re-scan" -- TODO: I couldn't get this to play nice, so I gave up for now
+    RefreshButton = "Re-scan" -- TODO: I couldn't get this to play nice, so I gave up for now
 })
 
 blobsProfiler.RegisterSubModule("Lua", "Execute", {
