@@ -1010,16 +1010,6 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 				end
 
 				moduleTab.OnActiveTabChanged = function(s, pnlOld, pnlNew)
-					if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen then
-						local useTab
-						if luaState == "Client" then
-							useTab = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ClientTab
-						else
-							useTab = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ServerTab
-						end
-						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState, useTab)
-					end
-
 					if not blobsProfiler[luaState][moduleName] or not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
 						if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].UpdateRealmData then
 							blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()]:UpdateRealmData(luaState)
@@ -1027,6 +1017,16 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 								blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].retrievingData = true
 							end
 						end
+					end
+
+					if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen then
+						local prntPanel
+						if luaState == "Client" then
+							prntPanel = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ClientTab
+						elseif luaState == "Server" then
+							prntPanel = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ServerTab
+						end
+						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState, prntPanel)
 					end
 				end
 			end
@@ -1151,16 +1151,19 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		end
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. subPropertySheetText)
 
-		if pnlNew:GetText() == "Server" and blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] then
-			if firstSubModule[subActiveTab:GetText()].data.OnOpen then
-				firstSubModule[subActiveTab:GetText()].data.OnOpen("Server", firstSubModule[subActiveTab:GetText()].data.ServerTab)
-			end
-
-			if firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
+		if blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] then
+			if pnlNew:GetText() == "Server" and firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
 				firstSubModule[subActiveTab:GetText()].data.retrievingData = true
 				firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
 			end
+		end
+
+		-- get selected module tab, call on ActiveTabChanged
+		if pnlNew:GetText() == "Client" then
+			tabClient:OnActiveTabChanged(nil, tabClient:GetActiveTab())
+		else
+			tabServer:OnActiveTabChanged(nil, tabServer:GetActiveTab())
 		end
 	end
 
@@ -1172,9 +1175,8 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			end
 		end
 
-		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
-			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Client", blobsProfiler.Modules[pnlNew:GetText()].ClientTab)
-		end
+		local getSheet = pnlNew:GetPanel()
+		getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
 	end
 
 	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
@@ -1186,19 +1188,17 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			end
 		end
 
-		if blobsProfiler.Modules[pnlNew:GetText()].OnOpen then
-			blobsProfiler.Modules[pnlNew:GetText()].OnOpen("Server", blobsProfiler.Modules[pnlNew:GetText()].ServerTab)
-		end
-		
 		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] then
-			if firstSubModule[pnlNew:GetText()].data.OnOpen then
-				firstSubModule[pnlNew:GetText()].data.OnOpen("Server", firstSubModule[pnlNew:GetText()].data.ServerTab)
-			end
 			if firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
 				firstSubModule[pnlNew:GetText()].data.retrievingData = true
 				firstSubModule[pnlNew:GetText()].data:UpdateRealmData("Server")
 			end
+		end
+
+		local getSheet = pnlNew:GetPanel()
+		if getSheet.OnActiveTabChanged then
+			getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
 		end
 	end
 
