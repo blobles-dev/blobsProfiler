@@ -638,7 +638,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	local tblOverrides = blobsProfiler.GetIconOverrides(varType)
 	if tblOverrides and tblOverrides[dataType] then
-		print("found", varType)
 		childNode.Icon:SetImage(tblOverrides[dataType])
 	end
 
