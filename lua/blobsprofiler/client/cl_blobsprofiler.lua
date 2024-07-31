@@ -646,7 +646,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		visualDataType = nodeValue.fakeVarType
 	end
 
-	if isRoot && varType == "Globals" then
+	if isRoot && varType == "Lua.Globals" then
 		local dataType = type(nodeData.value)
 		local specialFolderPanel = blobsProfiler.Menu.TypeFolders[luaState][visualDataType]
 		if specialFolderPanel && type(specialFolderPanel) == "Panel" then
@@ -705,7 +705,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			childNode.oldExpand(...)
 		end
 
-		if varType == "Schema" then
+		if varType == "SQLite.Schema" then
 			if nodeValue["ID"] or nodeValue["Default"] or nodeValue["Not NULL"] then -- TODO: Gotta be a better way to determine if this is a SQL table entry
 				childNode.Label:SetText(nodeValue.Name)
 			end
@@ -715,7 +715,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	else
 		local nodeText = nodeKey
-		if varType == "Schema" then
+		if varType == "SQLite.Schema" then
 			nodeText = nodeKey .. ": " .. tostring(nodeValue)
 		elseif varType == "Files" then
 			nodeText = nodeValue
@@ -749,7 +749,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	end
 
-	varType = varType or "Globals"
+	varType = varType or "Lua.Globals"
 
 	if parentNode.Restrictions then
 		childNode.Restrictions = parentNode.Restrictions
@@ -861,9 +861,14 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	if visualDataType and visualDataType == "function" then
-		childNode.FunctionRef = {name=nodeKey, func=nodeValue, path = "_G." .. childNode.GlobalPath}
+		childNode.FunctionRef = {name=nodeKey, func=nodeValue, path = childNode.GlobalPath, fakeVarType = "function"}
 		childNode:SetForceShowExpander(true)
-		childNode:IsFunc()
+		
+		if varType ~= "Profiling.Targets" then
+			childNode:IsFunc() -- This is what swaps the expander for a dcheckbox if it's a function
+		else
+			childNode:SetForceShowExpander(false) -- No need to select already selected functions for profiling..
+		end
 
 		blobsProfiler[luaState].Profile = blobsProfiler[luaState].Profile or {}
 		
@@ -922,6 +927,17 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	childNode.varType = varType
 
+	if varType == "Profiling.Targets" and isRoot then
+		local fullModuleName = nodeData.key
+		local splitModuleName = string.Explode(".", fullModuleName)
+
+		if #splitModuleName == 1 then
+			childNode.Icon:SetImage(blobsProfiler.Modules[splitModuleName[1]].Icon)
+		else
+			childNode.Icon:SetImage(blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].Icon)
+		end
+	end
+
 	return childNode
 end
 
@@ -947,7 +963,7 @@ local function buildDTree(luaState, parentPanel, rvarType, dataTableOverride)
 		dataTable = blobsProfiler.GetDataTableForRealm(luaState, rvarType) or {}
 	end
 
-	if varType == "Globals" then -- TODO: make this shit modular
+	if rvarType == "Lua.Globals" then -- TODO: make this shit modular
 		for key, value in pairs(dataTable) do
 			table.insert(rootNodes, {
 				key = key,
@@ -967,7 +983,7 @@ local function buildDTree(luaState, parentPanel, rvarType, dataTableOverride)
 
 		for index, nodeData in ipairs(specialNodes) do
 			if blobsProfiler.Menu.TypeFolders[luaState][nodeData.special] == true then
-				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special] = addDTreeNode(dTree, nodeData, true, true, varType, luaState)
+				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special] = addDTreeNode(dTree, nodeData, true, true, rvarType, luaState)
 				blobsProfiler.Menu.TypeFolders[luaState][nodeData.special].nodeData = nodeData
 			end
 		end
@@ -999,7 +1015,7 @@ local function buildDTree(luaState, parentPanel, rvarType, dataTableOverride)
 	local rootNodesLen = #rootNodes
 
 	for index, nodeData in ipairs(rootNodes) do
-		addDTreeNode(dTree, nodeData, false, true, varType, luaState)
+		addDTreeNode(dTree, nodeData, false, true, rvarType, luaState)
 
 		if index == rootNodesLen then
 			dTree:SetVisible(true)
@@ -1235,7 +1251,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 								local dynamicH = (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) and h-7 or h -- this is SO dumb
 								local startY = (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) and 0 or 1
-								
+
 								draw.RoundedBoxEx(4, 0, startY, perc * w, dynamicH, Color(255,255,0,50), true, true)
 							elseif blobsProfiler.Modules[moduleName].SubModules[subModuleName].flashyUpdate then
 								if (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) then -- TODO: DPanel subModuleTabs will never stop flashing
