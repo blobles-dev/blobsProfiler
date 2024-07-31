@@ -45,12 +45,6 @@ blobsProfiler.TypesToIcon = {
 	["Entity"] = "page_white_world"
 }
 
-blobsProfiler.VarTypeIconOverride = {
-	["Schema"] = {
-		["table"] = "table"
-	}
-}
-
 blobsProfiler.Menu.GlobalTypesToCondense = {
 	{
 		type = "string",
@@ -403,10 +397,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		childNode = useParent:AddNode(nodeKey)
 		childNode.Icon:SetImage(specialType && "icon16/folder_database.png" || "icon16/folder.png")
 
-		if blobsProfiler.VarTypeIconOverride[varType] and blobsProfiler.VarTypeIconOverride[varType][dataType] then
-			childNode.Icon:SetImage("icon16/" .. blobsProfiler.VarTypeIconOverride[varType][dataType] .. ".png")
-		end
-
 		childNode.oldExpand = childNode.SetExpanded
 		
 		childNode.NeedsLazyLoad = true -- TODO: add check to make sure there even is children?
@@ -469,10 +459,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 		childNode = useParent:AddNode(nodeText)
 		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[visualDataType] || "page_white_text") ..".png")
-
-		if blobsProfiler.VarTypeIconOverride[varType] and blobsProfiler.VarTypeIconOverride[varType][visualDataType] then
-			childNode.Icon:SetImage("icon16/" .. blobsProfiler.VarTypeIconOverride[varType][visualDataType] .. ".png")
-		end
 
 		childNode.DoClick = function()
 			if isRoot && useParent == parentNode && varType == "Globals" then
@@ -685,6 +671,12 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		else
 			childNode.Icon:SetImage(blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].Icon)
 		end
+	end
+
+	local tblOverrides = blobsProfiler.GetIconOverrides(varType)
+	if tblOverrides and tblOverrides[dataType] then
+		print("found", varType)
+		childNode.Icon:SetImage(tblOverrides[dataType])
 	end
 
 	return childNode

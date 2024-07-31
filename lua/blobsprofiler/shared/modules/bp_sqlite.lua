@@ -122,6 +122,9 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
                 icon = "icon16/table_multiple.png"
             },]]
         }
+    },
+    TypeIconOverride = {
+        ["table"] = "icon16/table.png"
     }
 })
 
