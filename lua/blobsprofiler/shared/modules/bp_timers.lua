@@ -42,8 +42,7 @@ blobsProfiler.RegisterModule("Timers", {
                     print(ref.value)
                     print(node.GlobalPath)
                 end,
-                icon = "icon16/application_osx_terminal.png",
-                requiredAccess = "Read"
+                icon = "icon16/application_osx_terminal.png"
             },
             { -- Pause/Resume timer
                 name = function(ref, node)
@@ -83,8 +82,7 @@ blobsProfiler.RegisterModule("Timers", {
                     else
                         return "icon16/clock_play.png"
                     end
-                end,
-                requiredAccess = "Write"
+                end
             },
             { -- Delete timer
                 name = function(ref, node)
@@ -102,8 +100,7 @@ blobsProfiler.RegisterModule("Timers", {
                         node.Icon:SetImage("icon16/clock_delete.png")
                     end
                 end,
-                icon = "icon16/clock_delete.png",
-                requiredAccess = "Delete"
+                icon = "icon16/clock_delete.png"
             },
             { -- Remove timer reference
                 name = function(ref, node)
@@ -113,8 +110,7 @@ blobsProfiler.RegisterModule("Timers", {
                     blobsProfiler.createdTimers[node.GlobalPath] = nil 
                     node:Remove()
                 end,
-                icon = "icon16/clock_red.png",
-                requiredAccess = "Delete"
+                icon = "icon16/clock_red.png"
             }
         }
     }

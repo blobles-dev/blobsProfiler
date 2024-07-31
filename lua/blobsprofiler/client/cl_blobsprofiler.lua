@@ -186,7 +186,7 @@ local function popupSourceView(sourceContent, frameTitle)
 end
 
 local function killAllSourcePopups()
-	for k,v in ipairs(blobsProfiler.sourceFrames) do
+	for k,v in pairs(blobsProfiler.sourceFrames) do
 		if IsValid(v) then
 			v:Remove()
 		end
@@ -244,8 +244,7 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 				print(ref.value)
 				print(node.GlobalPath)
 			end,
-			icon = "icon16/application_osx_terminal.png",
-			requiredAccess = "Read"
+			icon = "icon16/application_osx_terminal.png"
 		}
 	},
 	["number"] = {
@@ -255,8 +254,7 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 				print(ref.value)
 				print(node.GlobalPath)
 			end,
-			icon = "icon16/application_osx_terminal.png",
-			requiredAccess = "Read"
+			icon = "icon16/application_osx_terminal.png"
 		}
 	},
 	["boolean"] = {
@@ -266,8 +264,7 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 				print(ref.value)
 				print(node.GlobalPath)
 			end,
-			icon = "icon16/application_osx_terminal.png",
-			requiredAccess = "Read"
+			icon = "icon16/application_osx_terminal.png"
 		}
 	},
 	["table"] = {
@@ -276,11 +273,8 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 			func = function(ref, node)
 				PrintTable(ref.value)
 				print("Global Path:", node.GlobalPath)
-				print("Restrictions:")
-				PrintTable(node.Restrictions)
 			end,
-			icon = "icon16/application_osx_terminal.png",
-			requiredAccess = "Read"
+			icon = "icon16/application_osx_terminal.png"
 		}
 	},
 	["function"] = {
@@ -427,9 +421,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
 			if RCTable and RCTable[dataType] then				
 				for k,v in ipairs(RCTable[dataType]) do
-					if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
-						continue
-					end
 					if v.condition and not v.condition(nodeData, childNode, luaState) then
 						continue
 					end
@@ -471,7 +462,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	childNode.GlobalPath = childNode.GlobalPath || ""
-	childNode.Restrictions = childNode.Restrictions || {}
 
 	if not nodeData.special then
 		if isRoot then
@@ -483,21 +473,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	varType = varType or "Lua.Globals"
 
-	if parentNode.Restrictions then
-		childNode.Restrictions = parentNode.Restrictions
-	end
-
-	if blobsProfiler.Restrictions[varType] and blobsProfiler.Restrictions[varType][childNode.GlobalPath] then
-		childNode.Restrictions = blobsProfiler.Restrictions[varType][childNode.GlobalPath].Restrict
-	end
-
-	if childNode.Restrictions and (childNode.Restrictions["Read"] or childNode.Restrictions["Write"] or childNode.Restrictions["Delete"]) then
-		childNode.Label:SetTextColor(Color(200,190,0))
-
-		local toolTipStr = "Read: ".. (childNode.Restrictions["Read"] and "NO" or "YES") .."\nWrite: ".. (childNode.Restrictions["Write"] and "NO" or "YES") .."\nDelete: ".. (childNode.Restrictions["Delete"] and "NO" or "YES")
-		childNode:SetTooltip(toolTipStr)
-	end
-
 	childNode.DoRightClick = function()
 		childNode:InternalDoClick()
 
@@ -507,9 +482,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			local RCMenu = blobsProfiler.Menu.RCMenu
 			
 			for _, rcM in ipairs(RCTable[visualDataType]) do
-				if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
-					continue
-				end
 				if rcM.condition and not rcM.condition(nodeData, childNode, luaState) then
 					continue
 				end
@@ -529,9 +501,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 						if useIcon then rcParent:SetIcon(useIcon) end
 
 						for _, rcMS in ipairs(rcM.submenu) do
-							if rcMS.requiredAccess and childNode.Restrictions[rcMS.requiredAccess] then
-								continue
-							end
 							if rcMS.condition and not rcMS.condition(nodeData, childNode, luaState) then
 								continue
 							end
@@ -579,9 +548,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
 	if RCTable and RCTable[visualDataType] then				
 		for k,v in ipairs(RCTable[visualDataType]) do
-			if v.requiredAccess and childNode.Restrictions[v.requiredAccess] then
-				continue
-			end
 			if v.condition and not v.condition(nodeData, childNode, luaState) then
 				continue
 			end
@@ -640,9 +606,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 				childNode:SetExpanded(not childNode:GetExpanded())
 			elseif RCTable and RCTable[visualDataType] then
 				for _, rcM in ipairs(RCTable[visualDataType]) do
-					if rcM.requiredAccess and childNode.Restrictions[rcM.requiredAccess] then
-						continue
-					end
 					if rcM.condition and not rcM.condition(nodeData, childNode, luaState) then
 						continue
 					end

@@ -1,11 +1,5 @@
 blobsProfiler = blobsProfiler or {}
 
-blobsProfiler.Restrictions = blobsProfiler.Restrictions or {}
-blobsProfiler.Restrictions.Global = blobsProfiler.Restrictions.Global or {}
-blobsProfiler.Restrictions.Function = blobsProfiler.Restrictions.Function or {}
-blobsProfiler.Restrictions.Hook = blobsProfiler.Restrictions.Hook or {}
-blobsProfiler.Restrictions.Concommand = blobsProfiler.Restrictions.Concommand or {}
-
 blobsProfiler.Client = blobsProfiler.Client or {}
 blobsProfiler.Server = blobsProfiler.Server or {}
 
@@ -77,94 +71,6 @@ blobsProfiler.Log = function(lLevel, lMessage, lSendToServer, lErrStack) -- TODO
     else -- Default / Generic
         print(string.format("[%s] [INFO] blobsProfiler: %s", curTime, lMessage))
     end
-end
-
--- TODO:
--- Complete todo list
--- Prevent blobsProfiler.Restrictions modification outside of this file
-
-blobsProfiler.RestrictAccess = function(rType, rValue, rMethod) -- Legacy?
-    -- STRING rType = Global, Function, Hook, Concommand
-    -- STRING rValue = "functionName (or path i.e myGlobal.functionName)"
-    -- STRING or TABLE rMethod = Type of method to restrict (Read, Write, Delete) - * can be used in place of a table containing all methods
-
-    --[[
-        'Read'
-                READ: Deny
-                WRITE: Deny
-                DELETE: Deny
-        'Write'
-                READ: Allow
-                WRITE: Deny
-                DELETE: Deny
-        'Delete'
-                READ: Allow
-                WRITE: Allow
-                DELETE: Deny
-    ]]
-
-    if not rType or type(rType) ~= "string" or not table.HasValue({"Globals", "Function", "Hook", "Concommand"}, rType) then
-        error("blobsProfiler.RestrictAccess: Invalid rType provided '".. rType .."'\nAllowed string values: Global, Function, Hook, Concommand")
-    end
-    if not rMethod then -- Type is checked later on
-        error("blobsProfiler.RestrictAccess: rMethod not provided")
-    end
-    if not rValue or type(rValue) ~= "string" then
-        error("blobsProfiler.RestrictAccess: Invalid rValue provided")
-    end
-
-    local restrictMethods = {}
-    restrictMethods["Read"] = false
-    restrictMethods["Write"] = false
-    restrictMethods["Delete"] = false
-
-    if type(rMethod) == "string" then
-        rMethod = string.lower(rMethod)
-
-        if rMethod == "*" then
-            restrictMethods["Read"] = true
-            restrictMethods["Write"] = true
-            restrictMethods["Delete"] = true
-        elseif rMethod == "read" then
-            restrictMethods["Read"] = true
-        elseif rMethod == "write" then
-            restrictMethods["Write"] = true
-        elseif rMethod == "delete" then
-            restrictMethods["Delete"] = true
-        else
-            error("blobsProfiler.RestrictAccess: rMethod invalid string provided\nAllowed string values: Read, Write, Delete, *")
-        end
-    elseif type(rMethod) == "table" then
-        for _, rM in ipairs(rMethod) do
-            local rM = string.lower(rM)
-
-            if rM == "read" then
-                restrictMethods["Read"] = true
-            end
-            if rM == "write" then
-                restrictMethods["Write"] = true
-            end
-            if rM == "read" then
-                restrictMethods["Delete"] = true
-            end
-        end
-    else
-        error("blobsProfiler.RestrictAccess: Invalid rMethod type provided")
-    end
-
-    if blobsProfiler.Restrictions[rType][rValue] then
-        print("blobsProfiler.RestrictAccess: rValue is already restricted")
-        -- return
-    end
-
-    local dgiSource = debug.getinfo(2, "Sl")
-    blobsProfiler.Restrictions[rType][rValue] = {
-        Value = rValue,
-        Restrict = restrictMethods,
-        Restriction_Source = (dgiSource.short_src or "UNKNOWN_SOURCE") .. ":" .. (dgiSource.currentline or "UNKNOWN_LINE")
-    }
-
-    return true
 end
 
 blobsProfiler.CanAccess = function(cPly, cArea, cRealm)
