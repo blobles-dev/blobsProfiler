@@ -1176,7 +1176,9 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		end
 
 		local getSheet = pnlNew:GetPanel()
-		getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
+		if getSheet.OnActiveTabChanged then
+			getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
+		end
 	end
 
 	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
