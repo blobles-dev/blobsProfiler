@@ -1,5 +1,6 @@
 if SERVER then
     util.AddNetworkString("blobsProfiler:sendLua")
+    util.AddNetworkString("blobsProfiler:sendLua_versus")
 end
 
 blobsProfiler.RegisterModule("Lua", {
@@ -103,6 +104,7 @@ blobsProfiler.RegisterSubModule("Lua", "Globals", {
 
 blobsProfiler.RegisterSubModule("Lua", "Execute", {
     Icon = "icon16/script_code.png",
+    OrderPriority = 2,
     CustomPanel = function(luaState, parentPanel)
         local dhtmlPanel = blobsProfiler.generateAceEditorPanel(parentPanel)
 
@@ -133,6 +135,174 @@ blobsProfiler.RegisterSubModule("Lua", "Execute", {
     end
 })
 
+local function prettyProfilerTimeFormat(seconds)
+    if seconds >= 0.5 then
+        return string.format("%.2fs", seconds)
+    else
+        return string.format("%.6fms", seconds * 1000)
+    end
+end
+
+local function SetupResultsPanel(parentPanel, numIterations, lcTotalTime, lcMin, lcMax, rcTotalTime, rcMin, rcMax)
+    parentPanel.stopCompare = false
+
+    if parentPanel.resultsPanel and IsValid(parentPanel.resultsPanel) then
+        parentPanel.resultsPanel:Remove()
+        parentPanel.resultsPanel = nil
+    end
+
+    parentPanel.resultsPanel = vgui.Create("DPanel", parentPanel)
+    parentPanel.resultsPanel:Dock(BOTTOM)
+    parentPanel.resultsPanel:SetTall(70)
+
+    local colorGreen = Color(0,136,0)
+    local colorRed = Color(255,0,0)
+
+    parentPanel.resultsPanel.Paint = function(s,w,h)
+        draw.SimpleText("Total execution time: ".. prettyProfilerTimeFormat(lcTotalTime), "DermaDefault", 5, 5, lcTotalTime<rcTotalTime and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Slowest execution time: ".. prettyProfilerTimeFormat(lcMax), "DermaDefault", 5, 20, lcMax<rcMax and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Fastest execution time: ".. prettyProfilerTimeFormat(lcMin), "DermaDefault", 5, 35, lcMin<rcMin and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Average execution time: ".. prettyProfilerTimeFormat((lcTotalTime/numIterations)), "DermaDefault", 5, 50, ((lcTotalTime/numIterations)<(rcTotalTime/numIterations)) and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+
+        local dividerPos = parentPanel.codeContainer.m_DragBar:GetX()
+        draw.SimpleText("Total execution time: ".. prettyProfilerTimeFormat(rcTotalTime), "DermaDefault", 5 + dividerPos, 5, lcTotalTime>rcTotalTime and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Slowest execution time: ".. prettyProfilerTimeFormat(rcMax), "DermaDefault", 5 + dividerPos, 20, lcMax>rcMax and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Fastest execution time: ".. prettyProfilerTimeFormat(rcMin), "DermaDefault", 5 + dividerPos, 35, lcMin>rcMin and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+        draw.SimpleText("Average execution time: ".. prettyProfilerTimeFormat((rcTotalTime/numIterations)), "DermaDefault", 5 + dividerPos, 50, ((lcTotalTime/numIterations)>(rcTotalTime/numIterations)) and colorGreen or colorRed, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+    end
+end
+
+blobsProfiler.RegisterSubModule("Lua", "Versus", {
+    Icon = "icon16/application_cascade.png",
+    CustomPanel = function(luaState, parentPanel)
+        local leftCode = blobsProfiler.generateAceEditorPanel(parentPanel,[[local function addNumbers(a, b)
+  return a + b
+end
+
+local sum = addNumbers(5, 5)]])
+        local rightCode = blobsProfiler.generateAceEditorPanel(parentPanel,[[local sum = 5 + 5]])
+
+        local codeContainer = vgui.Create("DHorizontalDivider", parentPanel)
+        codeContainer:Dock(FILL)
+        
+        codeContainer:SetLeft(leftCode)
+        codeContainer:SetRight(rightCode)
+        
+        codeContainer:SetLeftMin(0)
+        codeContainer:SetRightMin(0)
+
+        -- Custom paint function for the drag bar
+        codeContainer.m_DragBar.Paint = function(s, w, h)
+            surface.SetDrawColor(0, 0, 0)
+            surface.DrawRect(0, 0, w, h)
+        end
+        
+        local optionsContainer = vgui.Create("DPanel", parentPanel)
+        optionsContainer:Dock(BOTTOM)
+        optionsContainer:SetTall(50)
+
+        local iterationNumSlider = vgui.Create("DNumSlider", optionsContainer)
+        iterationNumSlider:SetText("## of iterations")
+        iterationNumSlider.Label:SetTextColor(Color(0,0,0))
+        iterationNumSlider:SetMin(0)
+        iterationNumSlider:SetMax(50000)
+        iterationNumSlider:SetDecimals(0)
+        iterationNumSlider:SetValue(1000)
+        iterationNumSlider:Dock(TOP)
+        iterationNumSlider:DockMargin(15,0,0,0)
+        iterationNumSlider:DockPadding(0,0,0,5)
+
+        local runComparison = vgui.Create("DButton", optionsContainer)
+        runComparison:Dock(BOTTOM)
+        runComparison:SetText("Compare code")
+
+        runComparison.DoClick = function()
+            if not parentPanel.stopCompare or parentPanel.stopCompare == false then -- Is this redundant? probably. I forget. my brain is mush.
+                if parentPanel.resultsPanel and IsValid(parentPanel.resultsPanel) then
+                    parentPanel.resultsPanel:Remove()
+                    parentPanel.resultsPanel = nil
+                end
+
+                leftCode:RunJavascript([[
+                    var value = getEditorValue();
+                    gmod.receiveEditorContent(value);
+                ]])
+
+                rightCode:RunJavascript([[
+                    var value = getEditorValue();
+                    gmod.receiveEditorContent(value);
+                ]])
+
+                parentPanel.stopCompare = true -- This will be reset when results are displayed
+            else
+                if runComparison.Warning and IsValid(runComparison.Warning) then runComparison.Warning:Remove() runComparison.Warning = nil end
+                runComparison.Warning = Derma_Message("Please wait for the previous comparison to finish", "blobsProfiler - Slow down!", "OK")
+            end
+        end
+
+        local leftCodeContent
+        local rightCodeContent
+
+        leftCode:AddFunction("gmod", "receiveEditorContent", function(value)
+            leftCodeContent = value
+        end)
+
+        rightCode:AddFunction("gmod", "receiveEditorContent", function(value)
+            rightCodeContent = value
+
+            if luaState == "Client" then
+                local numIterations = math.Round(iterationNumSlider:GetValue())
+                if numIterations > 0 then
+                    local lcMin, lcMax
+                    local rcMin, rcMax -- Why aren't all these on a single line? because, fuck you. Thats why.
+                    
+                    -- TODO: Maybe add up the individual times, so the <l/c>c<Max/Min> checks aren't adding to performace (which is likely VERY minor)
+                    local lcStart = SysTime()
+                    for i=1, numIterations do
+                        local ciStart = SysTime()
+                        RunString(leftCodeContent)
+                        local ciTotal = SysTime() - ciStart
+
+                        if not lcMax or (ciTotal > lcMax) then lcMax = ciTotal end
+                        if not lcMin or (ciTotal < lcMin) then lcMin = ciTotal end
+                    end
+                    local lcTotalTime = SysTime() - lcStart
+
+                    local rcStart = SysTime()
+                    for i=1, numIterations do
+                        local ciStart = SysTime()
+                        RunString(rightCodeContent)
+                        local ciTotal = SysTime() - ciStart
+
+                        if not rcMax or (ciTotal > rcMax) then rcMax = ciTotal end
+                        if not rcMin or (ciTotal < rcMin) then rcMin = ciTotal end
+                    end
+                    local rcTotalTime = SysTime() - rcStart
+
+                    SetupResultsPanel(parentPanel, numIterations, lcTotalTime, lcMin, lcMax, rcTotalTime, rcMin, rcMax)
+                end
+            elseif luaState == "Server" then
+                blobsProfiler.Modules["Lua"].SubModules["Versus"].retrievingData = true
+                net.Start("blobsProfiler:sendLua_versus")
+                    net.WriteUInt(math.Round(iterationNumSlider:GetValue()) ,20)
+                    net.WriteString(leftCodeContent)
+                    net.WriteString(rightCodeContent)
+                net.SendToServer()
+            end
+        end)
+
+        parentPanel.codeContainer = codeContainer
+    end,
+    OnOpen = function(luaState, parentPanel)
+        timer.Simple(0, function()
+            local width = parentPanel.codeContainer:GetWide()
+            local dividerWidth = parentPanel.codeContainer:GetDividerWidth() or 8
+            local halfWidth = (width - dividerWidth) * 0.5
+            parentPanel.codeContainer:SetLeftWidth(halfWidth)
+        end)
+    end
+})
+
 net.Receive("blobsProfiler:sendLua", function(l, ply)
     if not SERVER or not blobsProfiler.CanAccess(ply, "sendLua", "Server") then return end
     local luaRun = net.ReadString()
@@ -141,4 +311,69 @@ net.Receive("blobsProfiler:sendLua", function(l, ply)
     blobsProfiler.Log(blobsProfiler.L_LOG, luaRun)
 
     RunString(luaRun)
+end)
+
+
+net.Receive("blobsProfiler:sendLua_versus", function(l, ply)
+    if not blobsProfiler.CanAccess(ply or LocalPlayer(), "sendLua_versus") then return end
+    if SERVER then
+        local numIterations = net.ReadUInt(20)
+        local luaRunL = net.ReadString()
+        local luaRunR = net.ReadString()
+
+        if numIterations > 0 then
+            local lcMin, lcMax
+            local rcMin, rcMax -- Why aren't all these on a single line? because, fuck you. Thats why.
+            
+            -- TODO: Maybe add up the individual times, so the <l/c>c<Max/Min> checks aren't adding to performace (which is likely VERY minor)
+            local lcStart = SysTime()
+            for i=1, numIterations do
+                local ciStart = SysTime()
+                RunString(luaRunL)
+                local ciTotal = SysTime() - ciStart
+
+                if not lcMax or (ciTotal > lcMax) then lcMax = ciTotal end
+                if not lcMin or (ciTotal < lcMin) then lcMin = ciTotal end
+            end
+            local lcTotalTime = SysTime() - lcStart
+
+            local rcStart = SysTime()
+            for i=1, numIterations do
+                local ciStart = SysTime()
+                RunString(luaRunR)
+                local ciTotal = SysTime() - ciStart
+
+                if not rcMax or (ciTotal > rcMax) then rcMax = ciTotal end
+                if not rcMin or (ciTotal < rcMin) then rcMin = ciTotal end
+            end
+            local rcTotalTime = SysTime() - rcStart
+
+            net.Start("blobsProfiler:sendLua_versus")
+                net.WriteUInt(numIterations, 20)
+
+                net.WriteDouble(lcTotalTime)
+                net.WriteDouble(lcMin)
+                net.WriteDouble(lcMax)
+
+                net.WriteDouble(rcTotalTime)
+                net.WriteDouble(rcMin)
+                net.WriteDouble(rcMax)
+            net.Send(ply)
+        end
+    else
+        blobsProfiler.Modules["Lua"].SubModules["Versus"].retrievingData = false 
+        
+        local numIterations = net.ReadUInt(20)
+
+        local lcTotalTime = net.ReadDouble()
+        local lcMin = net.ReadDouble()
+        local lcMax = net.ReadDouble()
+
+        local rcTotalTime = net.ReadDouble()
+        local rcMin = net.ReadDouble()
+        local rcMax = net.ReadDouble()
+
+        local parentPanel = blobsProfiler.Modules["Lua"].SubModules["Versus"].ServerTab
+        SetupResultsPanel(parentPanel, numIterations, lcTotalTime, lcMin, lcMax, rcTotalTime, rcMin, rcMax)
+    end
 end)
