@@ -14,24 +14,22 @@ blobsProfiler.RegisterSubModule = function(ParentModule, Name, ModuleConfig)
     print("[blobsProfiler] ".. ParentModule .." SubModule: ".. Name .." - Loaded!")
 end
 
-blobsProfiler.GetRCFunctionsTable = function(fullModuleName)
+blobsProfiler.GetModule = function(fullModuleName)
     local splitModuleName = string.Explode(".", fullModuleName)
 
     if #splitModuleName == 1 then
-        return blobsProfiler.Modules[splitModuleName[1]].RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
+        return blobsProfiler.Modules[splitModuleName[1]]
     else
-        return blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
+        return blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]], blobsProfiler.Modules[splitModuleName[1]]
     end
 end
 
+blobsProfiler.GetRCFunctionsTable = function(fullModuleName)
+    local moduleTable = blobsProfiler.GetModule(fullModuleName)
+    return moduleTable.RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
+end
+
 blobsProfiler.GetIconOverrides = function(fullModuleName)
-    local splitModuleName = string.Explode(".", fullModuleName)
-
-    if #splitModuleName == 1 then
-        return blobsProfiler.Modules[splitModuleName[1]].TypeIconOverride
-    else
-        return blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].TypeIconOverride
-    end
-
-    return nil
+    local moduleTable = blobsProfiler.GetModule(fullModuleName)
+    return moduleTable.TypeIconOverride or nil
 end

@@ -627,12 +627,10 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	if varType == "Profiling.Targets" and isRoot then
 		local fullModuleName = nodeData.key
-		local splitModuleName = string.Explode(".", fullModuleName)
 
-		if #splitModuleName == 1 then
-			childNode.Icon:SetImage(blobsProfiler.Modules[splitModuleName[1]].Icon)
-		else
-			childNode.Icon:SetImage(blobsProfiler.Modules[splitModuleName[1]].SubModules[splitModuleName[2]].Icon)
+		local getModule = blobsProfiler.GetModule(fullModuleName)
+		if getModule and getModule.Icon then
+			childNode.Icon:SetImage(getModule.Icon)
 		end
 	end
 
@@ -944,10 +942,12 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 						subModuleData.ClientTab = subModuleTab
 					elseif luaState == "Server" then
 						subModuleData.ServerTab = subModuleTab
+						local rawModuleName = moduleName .. "." .. subModuleName
+						local subModuleTable, parentModuleTable = blobsProfiler.GetModule(rawModuleName)
 
 						subModuleSheet.Tab.PaintOver = function(s,w,h)
-							if blobsProfiler.Modules[moduleName].childrenReceiving and blobsProfiler.Modules[moduleName].childrenReceiving[moduleName .. "." .. subModuleName] then
-								local recvTbl = blobsProfiler.Modules[moduleName].childrenReceiving[moduleName .. "." .. subModuleName]
+							if parentModuleTable.childrenReceiving and parentModuleTable.childrenReceiving[rawModuleName] then
+								local recvTbl = parentModuleTable.childrenReceiving[rawModuleName]
 								local recvChunks = recvTbl.receivedChunks and #recvTbl.receivedChunks or 0
 								local totChunks = recvTbl.totalChunks or 1
 								local perc = recvChunks / totChunks
@@ -956,9 +956,9 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 								local startY = (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) and 0 or 1
 
 								draw.RoundedBoxEx(4, 0, startY, perc * w, dynamicH, Color(255,255,0,50), true, true)
-							elseif blobsProfiler.Modules[moduleName].SubModules[subModuleName].flashyUpdate then
+							elseif subModuleTable.flashyUpdate then
 								if (moduleTab.GetActiveTab and moduleTab:GetActiveTab() == s) then -- TODO: DPanel subModuleTabs will never stop flashing
-									blobsProfiler.Modules[moduleName].SubModules[subModuleName].flashyUpdate = nil
+									subModuleTable.flashyUpdate = nil
 									return
 								end
 
@@ -970,7 +970,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 									draw.RoundedBoxEx(4, 0, startY, w, dynamicH, Color(0,255,0,50), true, true)
 								end
-							elseif blobsProfiler.Modules[moduleName].SubModules[subModuleName].retrievingData then
+							elseif subModuleTable.retrievingData then
 								local marqueeSpeed = 50  -- Speed of the marquee movement in pixels per second
 								local marqueeWidth = 50  -- Width of the marquee rectangle
 								local currentTime = CurTime()
@@ -1010,23 +1010,26 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 				end
 
 				moduleTab.OnActiveTabChanged = function(s, pnlOld, pnlNew)
+					local rawModuleName = moduleName .. "." .. pnlNew:GetText()
+					local subModuleTable, parentModuleTable = blobsProfiler.GetModule(rawModuleName)
+
 					if not blobsProfiler[luaState][moduleName] or not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
-						if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].UpdateRealmData then
-							blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()]:UpdateRealmData(luaState)
+						if subModuleTable.UpdateRealmData then
+							subModuleTable:UpdateRealmData(luaState)
 							if luaState == "Server" then
-								blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].retrievingData = true
+								subModuleTable.retrievingData = true
 							end
 						end
 					end
 
-					if blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen then
+					if subModuleTable.OnOpen then
 						local prntPanel
 						if luaState == "Client" then
-							prntPanel = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ClientTab
+							prntPanel = subModuleTable.ClientTab
 						elseif luaState == "Server" then
-							prntPanel = blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].ServerTab
+							prntPanel = subModuleTable.ServerTab
 						end
-						blobsProfiler.Modules[moduleName].SubModules[pnlNew:GetText()].OnOpen(luaState, prntPanel)
+						subModuleTable.OnOpen(luaState, prntPanel)
 					end
 				end
 			end
@@ -1066,13 +1069,14 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			elseif luaState == "Server" then
 				moduleData.ServerTab = moduleTab
 
+				local moduleTable = blobsProfiler.GetModule(moduleName)
 				moduleSheet.Tab.PaintOver = function(s,w,h)
 					-- 'Total' indicator progress bar of all submodules progress
-					if blobsProfiler.Modules[moduleName].childrenReceiving then
+					if moduleTable.childrenReceiving then
 						local totRecv = 0
 						local totChunks = 1
 
-						for moduleN, moduleRD in pairs(blobsProfiler.Modules[moduleName].childrenReceiving) do
+						for moduleN, moduleRD in pairs(moduleTable.childrenReceiving) do
 							totRecv = totRecv + (moduleRD.receivedChunks and #moduleRD.receivedChunks or 0)
 							totChunks = totChunks + (moduleRD.totalChunks or 1)
 						end
@@ -1082,9 +1086,9 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 						local dynamicH = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and h-7 or h -- this is SO dumb
 						local startY = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and 0 or 1
 						draw.RoundedBoxEx(4, 0, startY, totalPerc * w, dynamicH, Color(255,255,0,50), true, true)
-					elseif blobsProfiler.Modules[moduleName].flashyUpdate then
+					elseif moduleTable.flashyUpdate then
 						if (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) then -- TODO: DPanel subModuleTabs will never stop flashing
-							blobsProfiler.Modules[moduleName].flashyUpdate = nil
+							moduleTable.flashyUpdate = nil
 							return
 						end
 
@@ -1095,7 +1099,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 							local startY = (statePanel.GetActiveTab and statePanel:GetActiveTab() == s) and 0 or 1
 							draw.RoundedBoxEx(4, 0, startY, w, dynamicH, Color(0,255,0,50), true, true)
 						end
-					elseif blobsProfiler.Modules[moduleName].retrievingData then
+					elseif moduleTable.retrievingData then
 						local marqueeSpeed = 50  -- Speed of the marquee movement in pixels per second
 						local marqueeWidth = 50  -- Width of the marquee rectangle
 						local currentTime = CurTime()
@@ -1169,9 +1173,11 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 	tabClient.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		local moduleTable = blobsProfiler.GetModule(pnlNew:GetText())
+
 		if not blobsProfiler.Client[pnlNew:GetText()] then
-			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
-				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Client")
+			if moduleTable.UpdateRealmData then
+				moduleTable:UpdateRealmData("Client")
 			end
 		end
 
@@ -1183,14 +1189,16 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 	tabServer.OnActiveTabChanged = function(s, pnlOld, pnlNew)
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. " - " .. pnlNew:GetText())
+		local moduleTable = blobsProfiler.GetModule(pnlNew:GetText())
+
 		if not blobsProfiler.Server[pnlNew:GetText()] then
-			if blobsProfiler.Modules[pnlNew:GetText()].UpdateRealmData then
-				blobsProfiler.Modules[pnlNew:GetText()].retrievingData = true
-				blobsProfiler.Modules[pnlNew:GetText()]:UpdateRealmData("Server")
+			if moduleTable.UpdateRealmData then
+				moduleTable.retrievingData = true
+				moduleTable:UpdateRealmData("Server")
 			end
 		end
 
-		if blobsProfiler.Modules[pnlNew:GetText()] and firstSubModule[pnlNew:GetText()] then
+		if firstSubModule[pnlNew:GetText()] then
 			if firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
 				firstSubModule[pnlNew:GetText()].data.retrievingData = true
@@ -1208,45 +1216,28 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 end)
 
 local function handleSVDataUpdate(rawModuleName, dataTable)
-	local moduleSplit = string.Explode(".", rawModuleName) -- [1] is parent, [2] is submodule
-    local moduleName = moduleSplit[1]
-    local subModule = nil
-	
+	local moduleTable, parentModule = blobsProfiler.GetModule(rawModuleName)
 	blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData module: ".. rawModuleName)
 
-	if #moduleSplit == 2 then -- ew
-        subModule = moduleSplit[2]
+	if parentModule then
+		if parentModule.childrenReceiving[rawModuleName] then
+			parentModule.childrenReceiving[rawModuleName] = nil
+		end
 
-		if blobsProfiler.Modules[moduleName].childrenReceiving[moduleName .. "." .. subModule] then
-			blobsProfiler.Modules[moduleName].childrenReceiving[moduleName .. "." .. subModule] = nil
+		parentModule.flashyUpdate = true
+	else
+		if moduleTable.childrenReceiving[rawModuleName] then
+			moduleTable.childrenReceiving[rawModuleName] = nil
 		end
 	end
 
-	if not subModule then
-		if blobsProfiler.Modules[moduleName] then
-			blobsProfiler.SetRealmData("Server", moduleName, dataTable)
-			blobsProfiler.Modules[moduleName].retrievingData = false
+	blobsProfiler.SetRealmData("Server", rawModuleName, dataTable)
+	moduleTable.retrievingData = false
+	moduleTable.flashyUpdate = true
 
-			blobsProfiler.Modules[moduleName].flashyUpdate = true
-
-			if blobsProfiler.Modules[moduleName].BuildPanel then
-				blobsProfiler.Modules[moduleName].BuildPanel("Server", blobsProfiler.Modules[moduleName].ServerTab)
-				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module.BuildPanel completed for module "..moduleName.. " (Server)")
-			end
-		end
-	else
-		if blobsProfiler.Modules[moduleName] and blobsProfiler.Modules[moduleName].SubModules[subModule] then
-			blobsProfiler.SetRealmData("Server", rawModuleName, dataTable)
-			blobsProfiler.Modules[moduleName].SubModules[subModule].retrievingData = false
-
-			blobsProfiler.Modules[moduleName].flashyUpdate = true
-			blobsProfiler.Modules[moduleName].SubModules[subModule].flashyUpdate = true
-
-			if blobsProfiler.Modules[moduleName].SubModules[subModule].BuildPanel then
-				blobsProfiler.Modules[moduleName].SubModules[subModule].BuildPanel("Server", blobsProfiler.Modules[moduleName].SubModules[subModule].ServerTab)
-				blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module.BuildPanel completed for ".. moduleName .." submodule ".. subModule.. " (Server)")
-			end
-		end
+	if moduleTable.BuildPanel then
+		moduleTable.BuildPanel("Server", moduleTable.ServerTab)
+		blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module.BuildPanel completed for ".. rawModuleName .. " (Server)")
 	end
 end
 
@@ -1274,6 +1265,7 @@ net.Receive("blobsProfiler:requestData", function()
 
     table.insert(blobsProfiler.chunkModuleData[moduleName].receivedChunks, chunkData)
 
+	-- using blobsProfiler.Modules is acceptable here because it would look shit using .GetModule (i tried)
 	blobsProfiler.Modules[moduleParent].childrenReceiving = blobsProfiler.Modules[moduleParent].childrenReceiving or {}
 	blobsProfiler.Modules[moduleParent].childrenReceiving[moduleName] =  blobsProfiler.chunkModuleData[moduleName]
 

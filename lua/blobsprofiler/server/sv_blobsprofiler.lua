@@ -107,46 +107,41 @@ local function sendDataToClient(ply, moduleName, dataTbl)
     sendNextChunk()
 end
 
+local function transformModuleNameForPermissionsCheck(moduleName)
+    -- Example: Takes 'Lua.Globals' and turns it into {'Lua', 'Lua_Globals'}
+    local part1, part2 = string.match(moduleName, "([^%.]+)%.(.+)")
+    
+    if part1 and part2 then
+        return { part1, part1 .. "_" .. part2 }
+    else
+        return { moduleName }
+    end
+end
+
 net.Receive("blobsProfiler:requestData", function(l, ply)
     if not blobsProfiler.CanAccess(ply, "serverData") then return end
-    blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData NW")
+    local rawModuleName = net.ReadString()
+    blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData SV: ".. rawModuleName)
 
-    local rawDataModule = net.ReadString()
-    local moduleSplit = string.Explode(".", rawDataModule) -- [1] is parent, [2] is submodule
-    local dataModule = moduleSplit[1]
-    local subModule = nil
-
-	if #moduleSplit == 2 then -- ew
-        subModule = moduleSplit[2]
+    local permStrs = transformModuleNameForPermissionsCheck(rawModuleName)
+    for k, v in ipairs(permStrs) do
+        if not blobsProfiler.CanAccess(ply, "serverData"..v) then return end -- Passing 'Lua.Globals' will check 'serverData_Lua' & 'serverData_Lua_Globals'
     end
 
-    if not blobsProfiler.Modules[dataModule] then return end
-    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Valid module: ".. dataModule)
-    if not blobsProfiler.CanAccess(ply, "serverData_".. dataModule) then return end
+    local moduleTable, parentModuleTable = blobsProfiler.GetModule(rawModuleName)
 
     local dataTbl
-    if subModule then
-        if not blobsProfiler.Modules[dataModule].SubModules[subModule] then return end
-        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Valid ".. dataModule .." sub-module: ".. subModule)
-        if not blobsProfiler.CanAccess(ply, "serverData_".. dataModule .. "_" .. subModule) then return end
 
-        if blobsProfiler.Modules[dataModule].SubModules[subModule].PrepServerData then
-            dataTbl = blobsProfiler.Modules[dataModule].SubModules[subModule]:PrepServerData()
-        end
-    else
-        if blobsProfiler.Modules[dataModule].PrepServerData then
-            dataTbl = blobsProfiler.Modules[dataModule]:PrepServerData()
-        end
+    if moduleTable and moduleTable.PrepServerData then
+        dataTbl = moduleTable:PrepServerData()
+        blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawModuleName .. " PrepServerData() called!")
     end
 
     if not dataTbl then
-        blobsProfiler.Log(blobsProfiler.L_NH_ERROR, "Module: ".. rawDataModule .." did not return data in PrepServerData!")
+        blobsProfiler.Log(blobsProfiler.L_NH_ERROR, "Module: ".. rawModuleName .." did not return data in PrepServerData()!")
         dataTbl = {}
     end
 
-    --dataTbl = util.Compress(util.TableToJSON(dataTbl))
-    --netstream.Heavy(ply, "blobsProfiler:requestData", rawDataModule, dataTbl)
-    sendDataToClient(ply, rawDataModule, dataTbl)
-
-    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawDataModule .." data sent to client!")
+    sendDataToClient(ply, rawModuleName, dataTbl)
+    blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawModuleName .." data sent to client!")
 end)
