@@ -102,15 +102,51 @@ blobsProfiler.RegisterSubModule("Lua", "Globals", {
     RefreshButton = "Re-scan" -- TODO: I couldn't get this to play nice, so I gave up for now
 })
 
+local function luaExecuteFilesInit()
+    if not file.Exists("blobsProfiler", "DATA") then
+        file.CreateDir("blobsProfiler")
+    end
+
+    if not file.Exists("blobsProfiler/Client_LuaExecute.txt", "DATA") then
+        file.Write("blobsProfiler/Client_LuaExecute.txt", [[print("Hello client!")]])
+    end
+
+    if not file.Exists("blobsProfiler/Server_LuaExecute.txt", "DATA") then
+        file.Write("blobsProfiler/Server_LuaExecute.txt", [[print("Hello server!")]])
+    end
+end
+
+if CLIENT then
+    luaExecuteFilesInit()
+end
+
 blobsProfiler.RegisterSubModule("Lua", "Execute", {
     Icon = "icon16/script_code.png",
     OrderPriority = 2,
     CustomPanel = function(luaState, parentPanel)
-        local dhtmlPanel = blobsProfiler.generateAceEditorPanel(parentPanel)
+        luaExecuteFilesInit()
+
+        local preLoadContent = file.Read("blobsProfiler/"..luaState.."_LuaExecute.txt")
+        local dhtmlPanel = blobsProfiler.generateAceEditorPanel(parentPanel, preLoadContent or [[print("Hello world!")]])
 
         dhtmlPanel:Dock(FILL)
+        dhtmlPanel.lastCode = preLoadContent
+
+        dhtmlPanel:AddFunction("gmod", "saveContentsToFile", function(value)
+            if value ~= dhtmlPanel.lastCode then -- prevent unnecessary writes
+                blobsProfiler.Log(blobsProfiler.L_DEBUG, "Writing Lua Execute editor content to: 'blobsProfiler/"..luaState.."_LuaExecute.txt'")
+                file.Write("blobsProfiler/"..luaState.."_LuaExecute.txt", value)
+                dhtmlPanel.lastCode = value
+            end
+        end)
 
         dhtmlPanel:AddFunction("gmod", "receiveEditorContent", function(value)
+            if value ~= dhtmlPanel.lastCode then -- prevent unnecessary writes
+                blobsProfiler.Log(blobsProfiler.L_DEBUG, "Writing Lua Execute editor content to: 'blobsProfiler/"..luaState.."_LuaExecute.txt'")
+                file.Write("blobsProfiler/"..luaState.."_LuaExecute.txt", value)
+                dhtmlPanel.lastCode = value
+            end
+
             if luaState == "Client" then
                 RunString(value)
             elseif luaState == "Server" then
@@ -132,8 +168,29 @@ blobsProfiler.RegisterSubModule("Lua", "Execute", {
                 gmod.receiveEditorContent(value);
             ]])
         end
+
+        dhtmlPanel.attemptSaveContentsToFile = function()
+            dhtmlPanel:RunJavascript([[
+                var value = getEditorValue();
+                gmod.saveContentsToFile(value);
+            ]])
+        end
+
+        parentPanel.codePanel = dhtmlPanel
     end
 })
+
+timer.Create("blobsProfiler:LuaExecute_SaveToFile", 15, 0, function() -- TODO: Make this configurable once I do settings - and module settings
+    local moduleTbl = blobsProfiler.GetModule("Lua.Execute")
+    if not moduleTbl then return end
+
+    if moduleTbl.ClientTab and moduleTbl.ClientTab.codePanel and moduleTbl.ClientTab.codePanel.attemptSaveContentsToFile then
+        moduleTbl.ClientTab.codePanel.attemptSaveContentsToFile()
+    end
+    if moduleTbl.ServerTab and moduleTbl.ServerTab.codePanel and moduleTbl.ServerTab.codePanel.attemptSaveContentsToFile then
+        moduleTbl.ServerTab.codePanel.attemptSaveContentsToFile()
+    end
+end)
 
 local function prettyProfilerTimeFormat(seconds)
     if seconds >= 0.5 then
