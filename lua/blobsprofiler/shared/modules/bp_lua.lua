@@ -99,7 +99,14 @@ blobsProfiler.RegisterSubModule("Lua", "Globals", {
 
 		blobsProfiler.buildDTree(luaState, parentPanel, "Lua.Globals")
     end,
-    RefreshButton = "Re-scan" -- TODO: I couldn't get this to play nice, so I gave up for now
+    RefreshButton = "Re-scan",
+    FormatNodeIcon = function(luaState, nodeKey, nodeValue)
+        for _, varTypes in ipairs(blobsProfiler.Menu.GlobalTypesToCondense) do
+            if varTypes.prettyPlural == nodeKey then
+                return "icon16/folder_database.png"
+            end
+        end
+    end
 })
 
 local function luaExecuteFilesInit()
@@ -419,7 +426,7 @@ net.Receive("blobsProfiler:sendLua_versus", function(l, ply)
         end
     else
         blobsProfiler.Modules["Lua"].SubModules["Versus"].retrievingData = false 
-        
+
         local numIterations = net.ReadUInt(20)
 
         local lcTotalTime = net.ReadDouble()

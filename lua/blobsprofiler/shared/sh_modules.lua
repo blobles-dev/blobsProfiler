@@ -16,7 +16,8 @@ end
 
 blobsProfiler.GetModule = function(fullModuleName)
     local splitModuleName = string.Explode(".", fullModuleName)
-
+    if not blobsProfiler.Modules[splitModuleName[1]] then return end
+    
     if #splitModuleName == 1 then
         return blobsProfiler.Modules[splitModuleName[1]]
     else
@@ -27,9 +28,4 @@ end
 blobsProfiler.GetRCFunctionsTable = function(fullModuleName)
     local moduleTable = blobsProfiler.GetModule(fullModuleName)
     return moduleTable.RCFunctions or blobsProfiler.Menu.RCFunctions_DEFAULT
-end
-
-blobsProfiler.GetIconOverrides = function(fullModuleName)
-    local moduleTable = blobsProfiler.GetModule(fullModuleName)
-    return moduleTable.TypeIconOverride or nil
 end

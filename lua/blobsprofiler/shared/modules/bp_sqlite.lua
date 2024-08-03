@@ -14,6 +14,7 @@ local function buildSQLiteSchemaTable()
         for _, tblData in ipairs(grabTableIndexData) do
 			if tblData.type == "table" then
 				SQLiteSchema.Tables[tblData.name] = {}
+
 				local grabTableColumnData = sql.Query("PRAGMA table_info(".. sql.SQLStr(tblData.name) ..");")
 				if grabTableColumnData then
 					for _, tblCol in ipairs(grabTableColumnData) do
@@ -24,6 +25,8 @@ local function buildSQLiteSchemaTable()
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Type"] = tblCol.type or nil
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Not NULL"] = tblCol.notnull or nil
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Default"] = tblCol.dflt_value or nil
+
+                        SQLiteSchema.Tables[tblData.name][tblCol.cid].displayName = tblCol.name
 					end
 				end
 			elseif tblData.type == "index" then
@@ -123,11 +126,17 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
             },]]
         }
     },
-    TypeIconOverride = {
-        ["table"] = "icon16/table.png"
-    },
     FormatNodeName = function(luaState, nodeKey, nodeValue)
         return nodeKey .. ": " .. tostring(nodeValue)
+    end,
+    FormatNodeIcon = function(luaState, nodeKey, nodeValue)
+        if istable(nodeValue) and nodeValue["Primary Key"] then
+            return "icon16/table_key.png"
+        elseif not istable(nodeValue) then
+            return "icon16/page.png"
+        else
+            return "icon16/table.png"
+        end
     end
 })
 

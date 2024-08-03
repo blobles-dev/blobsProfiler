@@ -89,6 +89,14 @@ blobsProfiler.RegisterSubModule("Profiling", "Targets", {
     end,
     FormatNodeName = function(luaState, nodeKey, nodeValue)
         return nodeValue.name or nodeKey
+    end,
+    FormatNodeIcon = function(luaState, nodeKey, nodeValue)
+        local fullModuleName = nodeKey
+
+		local getModule = blobsProfiler.GetModule(fullModuleName)
+		if getModule and getModule.Icon then
+			return getModule.Icon
+		end
     end
 })
 

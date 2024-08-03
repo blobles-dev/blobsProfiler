@@ -389,7 +389,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 	if visualDataType == "table" then
 		childNode = useParent:AddNode(istable(nodeValue) and nodeValue.displayName or nodeKey)
-		childNode.Icon:SetImage(specialType && "icon16/folder_database.png" || "icon16/folder.png")
+		childNode.Icon:SetImage("icon16/folder.png")
 
 		childNode.oldExpand = childNode.SetExpanded
 		
@@ -432,13 +432,9 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			childNode.oldExpand(...)
 		end
 
-		if varType == "SQLite.Schema" then
-			if nodeValue["ID"] or nodeValue["Default"] or nodeValue["Not NULL"] then -- TODO: Gotta be a better way to determine if this is a SQL table entry
-				childNode.Label:SetText(nodeValue.Name)
-			end
-			if nodeValue["Primary Key"] then
-				childNode.Icon:SetImage("icon16/table_key.png")
-			end
+		local getModule = blobsProfiler.GetModule(varType)
+		if getModule.FormatNodeIcon and getModule.FormatNodeIcon(luaState, nodeKey, nodeValue) then
+			childNode.Icon:SetImage(getModule.FormatNodeIcon(luaState, nodeKey, nodeValue))
 		end
 	else
 		local nodeText = nodeKey
@@ -450,6 +446,10 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 		childNode = useParent:AddNode(nodeText)
 		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[visualDataType] || "page_white_text") ..".png")
+		
+		if getModule.FormatNodeIcon and getModule.FormatNodeIcon(luaState, nodeKey, nodeValue) then
+			childNode.Icon:SetImage(getModule.FormatNodeIcon(luaState, nodeKey, nodeValue))
+		end
 
 		childNode.DoClick = function()
 			if isRoot && useParent == parentNode && varType == "Globals" then
@@ -630,20 +630,6 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	childNode.varType = varType
-
-	if varType == "Profiling.Targets" and isRoot then
-		local fullModuleName = nodeData.key
-
-		local getModule = blobsProfiler.GetModule(fullModuleName)
-		if getModule and getModule.Icon then
-			childNode.Icon:SetImage(getModule.Icon)
-		end
-	end
-
-	local tblOverrides = blobsProfiler.GetIconOverrides(varType)
-	if tblOverrides and tblOverrides[dataType] then
-		childNode.Icon:SetImage(tblOverrides[dataType])
-	end
 
 	return childNode
 end
