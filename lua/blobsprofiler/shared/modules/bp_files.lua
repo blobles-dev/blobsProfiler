@@ -176,5 +176,8 @@ blobsProfiler.RegisterModule("Files", {
                 icon = "icon16/page_copy.png"
             }
         }
-    }
+    },
+    FormatNodeName = function(luaState, nodeKey, nodeValue)
+        return tostring(nodeValue)
+    end
 })

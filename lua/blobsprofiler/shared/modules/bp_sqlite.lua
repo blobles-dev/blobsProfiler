@@ -125,7 +125,10 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
     },
     TypeIconOverride = {
         ["table"] = "icon16/table.png"
-    }
+    },
+    FormatNodeName = function(luaState, nodeKey, nodeValue)
+        return nodeKey .. ": " .. tostring(nodeValue)
+    end
 })
 
 local function splitAndProcessQueries(query) -- why the fuck did I bother

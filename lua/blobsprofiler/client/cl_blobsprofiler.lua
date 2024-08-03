@@ -442,15 +442,13 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	else
 		local nodeText = nodeKey
-		if varType == "SQLite.Schema" then
-			nodeText = nodeKey .. ": " .. tostring(nodeValue)
-		elseif varType == "Files" then
-			nodeText = nodeValue
-		elseif varType == "Profiling.Targets" then
-			nodeText = nodeValue.name or nodeKey
+
+		local getModule = blobsProfiler.GetModule(varType)
+		if getModule.FormatNodeName then
+			nodeText = getModule.FormatNodeName(luaState, nodeKey, nodeValue)
 		end
 
-		childNode = useParent:AddNode(istable(nodeValue) and nodeValue.displayName or nodeText)
+		childNode = useParent:AddNode(nodeText)
 		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[visualDataType] || "page_white_text") ..".png")
 
 		childNode.DoClick = function()
