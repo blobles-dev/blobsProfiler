@@ -125,30 +125,16 @@ blobsProfiler.RegisterModule("Timers", {
             {
                 name = "View source",
                 func = function(ref, node, luaState)
-                    if luaState == "Client" and isfunction(ref.value.func) then
-                        local debugInfo = debug.getinfo(ref.value.func, "S")
-                        if not string.EndsWith(debugInfo.short_src, ".lua") then
-                            Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
-                            return
-                        end
-    
-                        net.Start("blobsProfiler:requestSource")
-                            net.WriteString(debugInfo.short_src)
-                            net.WriteUInt(debugInfo.linedefined, 16)
-                            net.WriteUInt(debugInfo.lastlinedefined, 16)
-                        net.SendToServer()
-                    else
-                        if not string.EndsWith(ref.value.short_src, ".lua") then
-                            Derma_Message("Invalid function source: ".. ref.value.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
-                            return
-                        end
-    
-                        net.Start("blobsProfiler:requestSource")
-                            net.WriteString(ref.value.short_src)
-                            net.WriteUInt(ref.value.linedefined, 16)
-                            net.WriteUInt(ref.value.lastlinedefined, 16)
-                        net.SendToServer()
+                    if not string.EndsWith(ref.value.short_src, ".lua") then
+                        Derma_Message("Invalid function source: ".. ref.value.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+                        return
                     end
+
+                    net.Start("blobsProfiler:requestSource")
+                        net.WriteString(ref.value.short_src)
+                        net.WriteUInt(ref.value.linedefined, 16)
+                        net.WriteUInt(ref.value.lastlinedefined, 16)
+                    net.SendToServer()
                 end,
                 icon = "icon16/magnifier.png"
             },
