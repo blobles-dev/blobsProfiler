@@ -39,6 +39,42 @@ local function buildSQLiteSchemaTable()
     return SQLiteSchema
 end
 
+if SERVER then
+    util.AddNetworkString("blobsProfiler:SQLite_Schema_CreateSQL")
+
+    net.Receive("blobsProfiler:SQLite_Schema_CreateSQL", function(len, ply)
+        if not blobsProfiler.CanAccess(ply, "SQLite") then return end
+        if not blobsProfiler.CanAccess(ply, "SQLite_Schema") then return end
+        if not blobsProfiler.CanAccess(ply, "SQLite_Schema_CreateSQL") then return end
+
+        local tableName = net.ReadString()
+        local rcAction = net.ReadUInt(2)
+        local grabData = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(tableName) .." LIMIT 1;")
+
+        if grabData then
+            net.Start("blobsProfiler:SQLite_Schema_CreateSQL")
+            net.WriteString(grabData)
+            net.WriteUInt(rcAction, 2)
+            net.Send(ply)
+        end
+    end)
+else
+    net.Receive("blobsProfiler:SQLite_Schema_CreateSQL", function()
+        local createSQL = net.ReadString()
+        local rcAction = net.ReadUInt(2)
+
+        if rcAction == 1 then
+            print(createSQL)
+
+            Derma_Message("SQLite creation statement printed to console", "blobsProfiler: SQLite Schema - Create SQL", "OK")
+        elseif rcAction == 2 then
+            SetClipboardText(createSQL)
+
+            Derma_Message("SQLite creation statement copied to clipboard", "blobsProfiler: SQLite Schema - Create SQL", "OK")
+        end
+    end)
+end
+
 blobsProfiler.RegisterSubModule("SQLite", "Schema", {
     Icon = "icon16/database_gear.png",
     OrderPriority = 1,
@@ -68,17 +104,35 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
                 submenu = {
                     {
                         name = "Print",
-                        func = function(ref, node)
-                            local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
-                            print(grabSQLCreate)
+                        func = function(ref, node, luaState)
+                            if luaState == "Client" then
+                                local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
+                                print(grabSQLCreate)
+
+                                Derma_Message("SQLite creation statement printed to console", "blobsProfiler: SQLite Schema - Create SQL", "OK")
+                            else
+                                net.Start("blobsProfiler:SQLite_Schema_CreateSQL")
+                                    net.WriteString(ref.key)
+                                    net.WriteUInt(1, 2)
+                                net.SendToServer()
+                            end
                         end,
                         icon = "icon16/application_osx_terminal.png"
                     },
                     {
                         name = "Copy to clipboard",
-                        func = function(ref, node)
-                            local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
-                            SetClipboardText(grabSQLCreate)
+                        func = function(ref, node, luaState)
+                            if luaState == "Client" then
+                                local grabSQLCreate = sql.QueryValue("SELECT sql FROM sqlite_master WHERE name = ".. sql.SQLStr(ref.key) .." LIMIT 1;")
+                                SetClipboardText(grabSQLCreate)
+
+                                Derma_Message("SQLite creation statement copied to clipboard", "blobsProfiler: SQLite Schema - Create SQL", "OK")
+                            else
+                                net.Start("blobsProfiler:SQLite_Schema_CreateSQL")
+                                    net.WriteString(ref.key)
+                                    net.WriteUInt(2, 2)
+                                net.SendToServer()
+                            end
                         end,
                         icon = "icon16/page_copy.png"
                     }
