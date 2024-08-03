@@ -4,8 +4,9 @@ local createdTimers = createdTimers or {}
 
 function timer.Create(identifier, delay, reps, func)
     local debugInfo = debug.getinfo(func)
-
-    createdTimers[identifier] = {
+    
+    createdTimers[tostring(identifier)] = {
+        ["Identifier: " .. tostring(identifier) ] = tostring(identifier),
         ["Delay: "..delay] = delay,
         ["Repititions: "..reps] = reps or 0,
         [tostring(func)] = {

@@ -7,6 +7,8 @@ blobsProfiler.RegisterModule("ConCommands", {
             local concommandsData = {}
 
             for ccName, ccFunc in pairs(concmdTbl) do
+                ccName = tostring(ccName)
+
                 local debugInfo = debug.getinfo(ccFunc)
                 concommandsData[ccName] = debugInfo
                 concommandsData[ccName].func = ccFunc
@@ -26,6 +28,8 @@ blobsProfiler.RegisterModule("ConCommands", {
         local concommandsData = {}
 
         for ccName, ccFunc in pairs(concmdTbl) do
+            ccName = tostring(ccName)
+
             local debugInfo = debug.getinfo(ccFunc)
             concommandsData[ccName] = debugInfo
             concommandsData[ccName].func = tostring(ccFunc)

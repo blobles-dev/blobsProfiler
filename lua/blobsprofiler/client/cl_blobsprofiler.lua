@@ -365,7 +365,7 @@ end
 
 local selectedNode = nil
 local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, luaState)
-	local nodeKey = nodeData.key
+	local nodeKey = tostring(nodeData.key)
 	local nodeValue = nodeData.value
 	local dataType = type(nodeValue)
 	local visualDataType = dataType
@@ -388,7 +388,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	if visualDataType == "table" then
-		childNode = useParent:AddNode(nodeKey)
+		childNode = useParent:AddNode(istable(nodeValue) and nodeValue.displayName or nodeKey)
 		childNode.Icon:SetImage(specialType && "icon16/folder_database.png" || "icon16/folder.png")
 
 		childNode.oldExpand = childNode.SetExpanded
@@ -450,7 +450,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			nodeText = nodeValue.name or nodeKey
 		end
 
-		childNode = useParent:AddNode(nodeText)
+		childNode = useParent:AddNode(istable(nodeValue) and nodeValue.displayName or nodeText)
 		childNode.Icon:SetImage("icon16/".. (blobsProfiler.TypesToIcon[visualDataType] || "page_white_text") ..".png")
 
 		childNode.DoClick = function()
@@ -1251,7 +1251,7 @@ net.Receive("blobsProfiler:requestData", function()
 
     if #blobsProfiler.chunkModuleData[moduleName].receivedChunks == totalChunks then
         local fullData = table.concat(blobsProfiler.chunkModuleData[moduleName].receivedChunks)
-        blobsProfiler.chunkModuleData[moduleName] = util.JSONToTable(util.Decompress(fullData))
+        blobsProfiler.chunkModuleData[moduleName] = util.JSONToTable(util.Decompress(fullData), false, true)
 
         handleSVDataUpdate(moduleName, blobsProfiler.chunkModuleData[moduleName])
 

@@ -5,9 +5,12 @@ blobsProfiler.RegisterModule("Hooks", {
         if luaState == "Client" then
             local hooksTable = {}
             for hookName, hookEvents in pairs(hook.GetTable()) do
+                hookName = tostring(hookName)
+
                 hooksTable[hookName] = hooksTable[hookName] or {}
-    
                 for eventName, eventFunc in pairs(hookEvents) do
+                    eventName = tostring(eventName)
+
                     local debugInfo = debug.getinfo(eventFunc)
                     hooksTable[hookName][eventName] = debugInfo
                     hooksTable[hookName][eventName].func = eventFunc
@@ -26,9 +29,12 @@ blobsProfiler.RegisterModule("Hooks", {
     PrepServerData = function()
         local hooksTable = {}
         for hookName, hookEvents in pairs(hook.GetTable()) do
+            hookName = tostring(hookName)
+            
             hooksTable[hookName] = hooksTable[hookName] or {}
-
             for eventName, eventFunc in pairs(hookEvents) do
+                eventName = tostring(eventName)
+
                 local debugInfo = debug.getinfo(eventFunc)
                 hooksTable[hookName][eventName] = debugInfo
                 hooksTable[hookName][eventName].func = tostring(eventFunc)

@@ -5,6 +5,8 @@ blobsProfiler.RegisterModule("Network", {
         if luaState == "Client" then    
             local netRecieversData = {}
             for recvName, recvFunc in pairs(net.Receivers) do
+                recvName = tostring(recvName)
+
                 local debugInfo = debug.getinfo(recvFunc)
                 netRecieversData[recvName] = debugInfo
                 netRecieversData[recvName].func = recvFunc
@@ -22,6 +24,8 @@ blobsProfiler.RegisterModule("Network", {
     PrepServerData = function()
         local netRecieversData = {}
         for recvName, recvFunc in pairs(net.Receivers) do
+            recvName = tostring(recvName)
+            
             local debugInfo = debug.getinfo(recvFunc)
             netRecieversData[recvName] = debugInfo
             netRecieversData[recvName].func = tostring(recvFunc)
