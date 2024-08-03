@@ -84,7 +84,7 @@ blobsProfiler.Menu.GlobalTypesToCondense = {
 	}
 }
 
-local function viewPropertiesPopup(title, data, width, height)
+blobsProfiler.viewPropertiesPopup = function(title, data, width, height)
 	local propertiesFrame = vgui.Create("DFrame")
 	width = width or 500
 	height = height or 500
@@ -323,7 +323,7 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 					propertiesData["debug.getinfo()"] = propertiesTbl
 				end
 				
-				local popupView = viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
+				local popupView = blobsProfiler.viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
 			end,
 			icon = "icon16/magnifier.png"
 		}

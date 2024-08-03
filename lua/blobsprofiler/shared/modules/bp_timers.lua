@@ -3,11 +3,19 @@ blobsProfiler.original_timerCreate = blobsProfiler.original_timerCreate or timer
 local createdTimers = createdTimers or {}
 
 function timer.Create(identifier, delay, reps, func)
-	createdTimers[identifier] = {
-		["Delay: "..delay] = delay, -- kill me now
-		["Repititions: "..reps] = reps or 0, -- kill me now
-		["Function: "..tostring(func)] = tostring(func) -- kill me now
-	}
+    local debugInfo = debug.getinfo(func)
+
+    createdTimers[identifier] = {
+        ["Delay: "..delay] = delay,
+        ["Repititions: "..reps] = reps or 0,
+        [tostring(func)] = {
+            fakeVarType = "function",
+            func = CLIENT and func or tostring(func),
+            lastlinedefined	= debugInfo.lastlinedefined,
+            linedefined	= debugInfo.linedefined,
+            short_src = debugInfo.short_src
+        }
+    }
 
 	return blobsProfiler.original_timerCreate(identifier, delay, reps, func)
 end
@@ -34,7 +42,7 @@ blobsProfiler.RegisterModule("Timers", {
 		blobsProfiler.buildDTree(luaState, parentPanel, "Timers")
     end,
     RefreshButton = "Refresh",
-    RCFunctions = {
+    RCFunctions = { -- TODO: fix 'timer.Exists' - this will obviously be false for server timers!
         ["table"] = { -- root node, timer identifier
             {
                 name = "Print",
@@ -111,6 +119,50 @@ blobsProfiler.RegisterModule("Timers", {
                     node:Remove()
                 end,
                 icon = "icon16/clock_red.png"
+            }
+        },
+        ["function"] = {
+            {
+                name = "View source",
+                func = function(ref, node, luaState)
+                    if luaState == "Client" and isfunction(ref.value.func) then
+                        local debugInfo = debug.getinfo(ref.value.func, "S")
+                        if not string.EndsWith(debugInfo.short_src, ".lua") then
+                            Derma_Message("Invalid function source: ".. debugInfo.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+                            return
+                        end
+    
+                        net.Start("blobsProfiler:requestSource")
+                            net.WriteString(debugInfo.short_src)
+                            net.WriteUInt(debugInfo.linedefined, 16)
+                            net.WriteUInt(debugInfo.lastlinedefined, 16)
+                        net.SendToServer()
+                    else
+                        if not string.EndsWith(ref.value.short_src, ".lua") then
+                            Derma_Message("Invalid function source: ".. ref.value.short_src.."\nOnly functions defined in Lua can be read!", "Function view source", "OK")
+                            return
+                        end
+    
+                        net.Start("blobsProfiler:requestSource")
+                            net.WriteString(ref.value.short_src)
+                            net.WriteUInt(ref.value.linedefined, 16)
+                            net.WriteUInt(ref.value.lastlinedefined, 16)
+                        net.SendToServer()
+                    end
+                end,
+                icon = "icon16/magnifier.png"
+            },
+            {
+                name = "View properties",
+                func = function(ref, node, luaState)
+                    local propertiesData = {}
+                    local propertiesTbl = table.Copy(ref.value)
+                    propertiesTbl.fakeVarType = nil
+                    propertiesData["debug.getinfo()"] = propertiesTbl
+
+                    local popupView = blobsProfiler.viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
+                end,
+                icon = "icon16/magnifier.png"
             }
         }
     }
