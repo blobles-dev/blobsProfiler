@@ -487,9 +487,9 @@ blobsProfiler.RegisterSubModule("SQLite", "Execute", {
 
         parentPanel.handleQueries = function(luaStateHQ, dataTable)
             local realmString = string.lower(luaStateHQ)
-            if not blobsProfiler.CanAccess(ply, realmString .. "Data") then return end
-            if not blobsProfiler.CanAccess(ply, realmString .. "Data_SQLite") then return end
-            if not blobsProfiler.CanAccess(ply, realmString .. "Data_SQLite_Execute") then return end
+            if not blobsProfiler.CanAccess(LocalPlayer(), realmString .. "Data") then return end
+            if not blobsProfiler.CanAccess(LocalPlayer(), realmString .. "Data_SQLite") then return end
+            if not blobsProfiler.CanAccess(LocalPlayer(), realmString .. "Data_SQLite_Execute") then return end
 
             if resultContainer and IsValid(resultContainer) then
                 resultContainer:Remove()
