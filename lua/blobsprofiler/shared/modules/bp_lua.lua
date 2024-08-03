@@ -100,6 +100,13 @@ blobsProfiler.RegisterSubModule("Lua", "Globals", {
 		blobsProfiler.buildDTree(luaState, parentPanel, "Lua.Globals")
     end,
     RefreshButton = "Re-scan",
+    FormatNodeName = function(luaState, nodeKey, nodeValue)
+        if nodeValue and istable(nodeValue) and not nodeValue.fakeVarType then
+            return nodeKey .. " (".. table.Count(nodeValue) ..")"
+        end
+
+        return nodeKey
+    end,
     FormatNodeIcon = function(luaState, nodeKey, nodeValue)
         for _, varTypes in ipairs(blobsProfiler.Menu.GlobalTypesToCondense) do
             if varTypes.prettyPlural == nodeKey then

@@ -38,6 +38,13 @@ blobsProfiler.RegisterSubModule("Profiling", "Targets", {
         profilerData.Called = nil
         profilerData.Results = nil
 
+        local getKeys = table.GetKeys(profilerData)
+        for _, tblKey in ipairs(getKeys) do
+            if profilerData[tblKey] and table.Count(profilerData[tblKey]) == 0 then
+                profilerData[tblKey] = nil
+            end
+        end
+
         blobsProfiler.buildDTree(luaState, parentPanel, "Profiling.Targets", profilerData)
 
         if parentPanel.startProfilingButton and IsValid(parentPanel.startProfilingButton) then

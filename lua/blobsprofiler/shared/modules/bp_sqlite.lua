@@ -25,8 +25,6 @@ local function buildSQLiteSchemaTable()
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Type"] = tblCol.type or nil
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Not NULL"] = tblCol.notnull or nil
 						SQLiteSchema.Tables[tblData.name][tblCol.cid]["Default"] = tblCol.dflt_value or nil
-
-                        SQLiteSchema.Tables[tblData.name][tblCol.cid].displayName = tblCol.name
 					end
 				end
 			elseif tblData.type == "index" then
@@ -144,44 +142,18 @@ blobsProfiler.RegisterSubModule("SQLite", "Schema", {
                     return blobsProfiler[realm].SQLite.Schema.Tables[ref.key]
                 end
             }
-            --[[{
-                name = "Expand children",
-                func = function(ref, node)
-                    local function expandChildren(panel)
-                        if panel.Expander and (panel.GetExpanded and not panel:GetExpanded()) then
-                            panel.Expander:DoClick()
-                        end
-    
-                        for k, v in pairs(panel:GetChildren()) do
-                            expandChildren(v)
-                        end
-                    end
-    
-                    expandChildren(node)
-                end,
-                icon = "icon16/table_multiple.png"
-            },
-            {
-                name = "Collapse children",
-                func = function(ref, node)
-                    local function expandChildren(panel)
-                        if panel.Expander and (panel.GetExpanded and panel:GetExpanded()) then
-                            panel.Expander:DoClick()
-                        end
-    
-                        for k, v in pairs(panel:GetChildren()) do
-                            expandChildren(v)
-                        end
-                    end
-    
-                    expandChildren(node)
-                end,
-                icon = "icon16/table_multiple.png"
-            },]]
         }
     },
     FormatNodeName = function(luaState, nodeKey, nodeValue)
-        return nodeKey .. ": " .. tostring(nodeValue)
+        if istable(nodeValue) then
+            if nodeValue["ID"] and nodeValue["Name"] then
+                return nodeValue["Name"]
+            else
+                return nodeKey
+            end
+        else
+            return nodeKey .. ": " .. tostring(nodeValue)
+        end
     end,
     FormatNodeIcon = function(luaState, nodeKey, nodeValue)
         if istable(nodeValue) and nodeValue["Primary Key"] then

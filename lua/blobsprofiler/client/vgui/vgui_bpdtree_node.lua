@@ -54,6 +54,7 @@ end
 
 function PANEL:IsFunc()
 	self.Expander = vgui.Create("DCheckBox", self)
+	self.Expander:SetTooltip("Toggle Profiling")
 end
 
 function PANEL:IsRootNode()

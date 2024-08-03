@@ -1,11 +1,11 @@
 blobsProfiler.original_timerCreate = blobsProfiler.original_timerCreate or timer.Create
 
-local createdTimers = createdTimers or {}
+blobsProfiler.createdTimers = blobsProfiler.createdTimers or {}
 
 function timer.Create(identifier, delay, reps, func)
     local debugInfo = debug.getinfo(func)
     
-    createdTimers[tostring(identifier)] = {
+    blobsProfiler.createdTimers[tostring(identifier)] = {
         ["Identifier: " .. tostring(identifier) ] = tostring(identifier),
         ["Delay: "..delay] = delay,
         ["Repititions: "..reps] = reps or 0,
@@ -37,7 +37,7 @@ if SERVER then
         elseif Control == 3 then
             timer.Remove(timerName)
         elseif Control == 0 then
-            createdTimers[timerName] = nil
+            blobsProfiler.createdTimers[timerName] = nil
         end
 
         blobsProfiler.SendModuleData("Timers", ply)
@@ -50,7 +50,7 @@ blobsProfiler.RegisterModule("Timers", {
     UpdateRealmData = function(luaState)
         if luaState == "Client" then
             -- why dont we just set it straight away ffs
-            blobsProfiler.Client.Timers = createdTimers
+            blobsProfiler.Client.Timers = blobsProfiler.createdTimers
         else
             net.Start("blobsProfiler:requestData")
                 net.WriteString("Timers")
@@ -58,12 +58,12 @@ blobsProfiler.RegisterModule("Timers", {
         end
     end,
     PrepServerData = function()
-        for k,v in pairs(createdTimers) do
+        for k,v in pairs(blobsProfiler.createdTimers) do
             local timerAlive = timer.Exists(k)
             v.timeLeft = timerAlive and timer.TimeLeft(k)
             v.isAlive = timerAlive
         end
-        return createdTimers
+        return blobsProfiler.createdTimers
     end,
     PreloadClient = true,
     PreloadServer = false,
@@ -71,8 +71,17 @@ blobsProfiler.RegisterModule("Timers", {
 		blobsProfiler.buildDTree(luaState, parentPanel, "Timers")
     end,
     RefreshButton = "Refresh",
-    RCFunctions = { -- TODO: fix 'timer.Exists' - this will obviously be false for server timers!
-        ["table"] = { -- root node, timer identifier
+    RCFunctions = {
+        ["table"] = {
+            {
+                name = "Expand/Collapse",
+			    func = function(ref, node)
+                    if node and IsValid(node) and node.SetExpanded then
+                        node:SetExpanded(not node:GetExpanded())
+                    end
+                end,
+                icon = "icon16/folder_explore.png"
+            },
             {
                 name = "Print",
                 func = function(ref, node)
@@ -127,16 +136,16 @@ blobsProfiler.RegisterModule("Timers", {
                         node.Icon:SetImage("icon16/clock_stop.png")
                     else
                         node.Icon:SetImage("icon16/clock_play.png")
-                    end
+                     end
                 end,
                 icon = function(ref, node, luaState)
                     if luaState == "Client" and not timer.Exists(node.GlobalPath) then return end
                     if luaState == "Server" and not ref.value.isAlive then return end
                     local timeLeft = luaState == "Client" and timer.TimeLeft(node.GlobalPath) or ref.value.timeLeft
                     if timeLeft < 0 then
-                        return "icon16/clock_stop.png"
-                    else
                         return "icon16/clock_play.png"
+                    else
+                        return "icon16/clock_stop.png"
                     end
                 end
             },
@@ -175,7 +184,7 @@ blobsProfiler.RegisterModule("Timers", {
                     end
                 end,
                 func = function(ref, node, luaState)
-                    createdTimers[node.GlobalPath] = nil 
+                    blobsProfiler.createdTimers[node.GlobalPath] = nil 
 
                     if luaState == "Server" then
                         net.Start("blobsProfiler:Timers_Control")
@@ -190,6 +199,24 @@ blobsProfiler.RegisterModule("Timers", {
             }
         },
         ["function"] = {
+            {
+                name = "Toggle Profiling",
+                func = function(ref, node)
+                    if node.Expander and IsValid(node.Expander) and node.Expander.SetChecked then
+                        local curChecked = node.Expander:GetChecked()
+                        node.Expander:SetChecked(not curChecked)
+                        node.Expander:OnChange(not curChecked)
+                    end
+                end,
+                condition = function(ref, node)
+                    if not node.Expander or not IsValid(node.Expander) or not node.Expander.SetChecked or not node.Expander:IsVisible() then
+                        return false
+                    end
+    
+                    return true
+                end,
+                icon = "icon16/chart_bar.png"
+            },
             {
                 name = "View source",
                 func = function(ref, node, luaState)

@@ -77,6 +77,14 @@ blobsProfiler.RegisterModule("Files", {
     RCFunctions = {
         ["table"] = {
             {
+                name = "Expand/Collapse",
+                func = function(ref, node)
+                    node:ExpandRecurse(not node:GetExpanded())
+                    -- it's ok to use the ExpandRecurse here, not as bad as global tables.
+                end,
+                icon = "icon16/folder_explore.png"
+            },
+            {
                 name = "Print path",
                 func = function(ref, node)
                     local path = ""
@@ -178,6 +186,6 @@ blobsProfiler.RegisterModule("Files", {
         }
     },
     FormatNodeName = function(luaState, nodeKey, nodeValue)
-        return tostring(nodeValue)
+        return istable(nodeValue) and nodeKey or nodeValue
     end
 })

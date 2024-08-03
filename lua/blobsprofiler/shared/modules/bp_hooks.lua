@@ -30,7 +30,7 @@ blobsProfiler.RegisterModule("Hooks", {
         local hooksTable = {}
         for hookName, hookEvents in pairs(hook.GetTable()) do
             hookName = tostring(hookName)
-            
+
             hooksTable[hookName] = hooksTable[hookName] or {}
             for eventName, eventFunc in pairs(hookEvents) do
                 eventName = tostring(eventName)
@@ -50,5 +50,12 @@ blobsProfiler.RegisterModule("Hooks", {
     BuildPanel = function(luaState, parentPanel)
 		blobsProfiler.buildDTree(luaState, parentPanel, "Hooks")
     end,
-    RefreshButton = "Re-scan"
+    RefreshButton = "Re-scan",
+    FormatNodeName = function(luaState, nodeKey, nodeValue)
+        if nodeValue and istable(nodeValue) and not nodeValue.fakeVarType then
+            return nodeKey .. " (".. table.Count(nodeValue) ..")"
+        end
+
+        return nodeKey
+    end
 })

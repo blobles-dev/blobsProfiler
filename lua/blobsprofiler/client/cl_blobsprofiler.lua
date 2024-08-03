@@ -269,6 +269,27 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 	},
 	["table"] = {
 		{
+			name = "Expand/Collapse",
+			func = function(ref, node)
+				local curState
+				if node and IsValid(node) and node.SetExpanded then
+					local curState = node:GetExpanded()
+					node:SetExpanded(not curState)
+
+					if ref.special then -- Don't go deeper for Lua.Globals 'type' root nodes
+						return
+					end
+
+					for _, childNode in ipairs(node:GetChildNodes()) do
+						if childNode and IsValid(childNode) and childNode.SetExpanded then
+							childNode:SetExpanded(not curState)
+						end
+					end
+				end
+			end,
+			icon = "icon16/folder_explore.png"
+		},
+		{
 			name = "Print",
 			func = function(ref, node)
 				PrintTable(ref.value)
@@ -278,6 +299,49 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 		}
 	},
 	["function"] = {
+		{
+			name = "Toggle Profiling",
+			func = function(ref, node)
+				if node.Expander and IsValid(node.Expander) and node.Expander.SetChecked then
+					local curChecked = node.Expander:GetChecked()
+					node.Expander:SetChecked(not curChecked)
+					node.Expander:OnChange(not curChecked)
+				end
+			end,
+			condition = function(ref, node)
+				if not node.Expander or not IsValid(node.Expander) or not node.Expander.SetChecked or not node.Expander:IsVisible() then
+					return false
+				end
+
+				return true
+			end,
+			icon = "icon16/chart_bar.png"
+		},
+		{
+			name = "Stop Profiling", -- this is literally only for the profiling module. i could use the modular function, but then i'd lose all the defaults. TODO: default AND custom combined RC options
+			func = function(ref, node)
+				if istable(ref.value) and ref.value.node and IsValid(ref.value.node) then
+					if ref.value.node.Expander and IsValid(ref.value.node.Expander) and ref.value.node.Expander.SetChecked then
+						ref.value.node.Expander:SetChecked(false)
+						ref.value.node.Expander:OnChange(false)
+
+						if node:GetParentNode() and node:GetParentNode():GetChildNodeCount() == 1 then
+							node:GetParentNode():Remove()
+						else
+							node:Remove()
+						end
+					end
+				end
+			end,
+			condition = function(ref, node, luaState)
+				if node.Expander and not node.Expander:IsVisible() then
+					return true
+				end
+
+				return false
+			end,
+			icon = "icon16/chart_bar.png"
+		},
 		{
 			name = "View source",
 			func = function(ref, node, luaState)
@@ -386,14 +450,24 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			useParent = specialFolderPanel
 		end
 	end
-
 	if visualDataType == "table" then
-		childNode = useParent:AddNode(istable(nodeValue) and nodeValue.displayName or nodeKey)
+		local useNodeName = nodeKey
+		local getModule = blobsProfiler.GetModule(varType)
+		if not specialType and getModule.FormatNodeName and getModule.FormatNodeName(luaState, nodeKey, nodeValue) then
+			useNodeName = getModule.FormatNodeName(luaState, nodeKey, nodeValue)
+		end
+
+		childNode = useParent:AddNode(useNodeName)
+
 		childNode.Icon:SetImage("icon16/folder.png")
 
 		childNode.oldExpand = childNode.SetExpanded
 		
-		childNode.NeedsLazyLoad = true -- TODO: add check to make sure there even is children?
+		--childNode.NeedsLazyLoad = true -- TODO: add check to make sure there even is children?
+
+		if istable(nodeValue) and table.Count(nodeValue) > 0 then
+			childNode.NeedsLazyLoad = true
+		end
 
 		childNode.SetExpanded = function(...)
 			if !childNode.LazyLoaded then
@@ -561,7 +635,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 	end
 
 	if visualDataType and visualDataType == "function" then
-		childNode.FunctionRef = {name=nodeKey, func=nodeValue, path = childNode.GlobalPath, fakeVarType = "function"}
+		childNode.FunctionRef = {name=nodeKey, func=nodeValue, path = childNode.GlobalPath, fakeVarType = "function", node=childNode}
 		childNode:SetForceShowExpander(true)
 		
 		if varType ~= "Profiling.Targets" then
@@ -592,44 +666,30 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		end
 	end
 
-	childNode.DoClick = function() -- hacky asf
-		-- Find the first available right click option and run the func method (or expand)
-		if selectedNode and selectedNode == childNode then -- ay carumba
-			if childNode.lastClicked and (CurTime() - childNode.lastClicked > 1) then
-				selectedNode = childNode
-				childNode.lastClicked = CurTime()
-				return
-			end
+	childNode.Label.DoDoubleClick = function()
+		local dataType = type(nodeValue)
+		local visualDataType = dataType
 
-			local dataType = type(nodeValue)
-			local visualDataType = dataType
-			if istable(nodeValue) and nodeValue.fakeVarType then
-				visualDataType = nodeValue.fakeVarType -- every day we stray further away from god
-			end
+		if istable(nodeValue) and nodeValue.fakeVarType then
+			visualDataType = nodeValue.fakeVarType -- every day we stray further away from god
+		end
 
-			local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
-			if dataType == "table" and childNode.Expander and childNode.Expander.SetExpanded then
-				childNode:SetExpanded(not childNode:GetExpanded())
-			elseif RCTable and RCTable[visualDataType] then
-				for _, rcM in ipairs(RCTable[visualDataType]) do
-					if rcM.condition and not rcM.condition(nodeData, childNode, luaState) then
-						continue
-					end
-	
-					rcM.func(nodeData, childNode, luaState) -- this should be first one they have access to
-					break
+		local RCTable = blobsProfiler.GetRCFunctionsTable(varType)
+		
+		if RCTable and RCTable[visualDataType] then
+			for _, rcM in ipairs(RCTable[visualDataType]) do
+				if rcM.condition and not rcM.condition(nodeData, childNode, luaState) then
+					continue
 				end
-			end
 
-			selectedNode = nil
-			childNode.lastClicked = nil
-		else
-			selectedNode = childNode
-			childNode.lastClicked = CurTime()
+				rcM.func(nodeData, childNode, luaState) -- this should be first one they have access to
+				break
+			end
 		end
 	end
 
 	childNode.varType = varType
+
 
 	return childNode
 end
