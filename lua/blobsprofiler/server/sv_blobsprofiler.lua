@@ -118,9 +118,8 @@ local function transformModuleNameForPermissionsCheck(moduleName)
     end
 end
 
-net.Receive("blobsProfiler:requestData", function(l, ply)
+blobsProfiler.SendModuleData = function(rawModuleName, ply)
     if not blobsProfiler.CanAccess(ply, "serverData") then return end
-    local rawModuleName = net.ReadString()
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "requestData SV: ".. rawModuleName)
 
     local permStrs = transformModuleNameForPermissionsCheck(rawModuleName)
@@ -144,4 +143,10 @@ net.Receive("blobsProfiler:requestData", function(l, ply)
 
     sendDataToClient(ply, rawModuleName, dataTbl)
     blobsProfiler.Log(blobsProfiler.L_DEBUG, "Module: ".. rawModuleName .." data sent to client!")
+end
+
+net.Receive("blobsProfiler:requestData", function(l, ply)
+    local rawModuleName = net.ReadString()
+
+    blobsProfiler.SendModuleData(rawModuleName, ply)
 end)

@@ -425,7 +425,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 						continue
 					end
 
-					if v.onLoad then v.onLoad(nodeData, childNode) end
+					if v.onLoad then v.onLoad(nodeData, childNode, luaState) end
 				end
 			end
 
@@ -490,7 +490,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 				local useName = rcM.name
 				if type(rcM.name) == "function" then
-					useName = rcM.name(nodeData, childNode)
+					useName = rcM.name(nodeData, childNode, luaState)
 				end
 				if useName then
 					if rcM.submenu then
@@ -498,7 +498,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 						local useIcon = rcM.icon
 						if type(rcM.icon) == "function" then
-							useIcon = rcM.icon(nodeData, childNode)
+							useIcon = rcM.icon(nodeData, childNode, luaState)
 						end
 						if useIcon then rcParent:SetIcon(useIcon) end
 
@@ -509,19 +509,19 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 
 							local useNameSM = rcMS.name
 							if type(rcMS.name) == "function" then
-								useNameSM = rcMS.name(nodeData, childNode)
+								useNameSM = rcMS.name(nodeData, childNode, luaState)
 							end
 							if useNameSM then
 								local rcChildP = rcChild:AddOption(useNameSM, function()
 									rcMS.func(nodeData, childNode, luaState)
 									if rcMS.onLoad then
-										rcMS.onLoad(nodeData, childNode)
+										rcMS.onLoad(nodeData, childNode, luaState)
 									end
 								end)
 
 								local useIconSM = rcMS.icon
 								if type(rcMS.icon) == "function" then
-									useIconSM = rcMS.icon(nodeData, childNode)
+									useIconSM = rcMS.icon(nodeData, childNode, luaState)
 								end
 								if useIconSM then rcChildP:SetIcon(useIconSM) end
 							end
@@ -530,13 +530,13 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 						local rcOption = RCMenu:AddOption(useName, function()
 							rcM.func(nodeData, childNode, luaState)
 							if rcM.onLoad then
-								rcM.onLoad(nodeData, childNode)
+								rcM.onLoad(nodeData, childNode, luaState)
 							end
 						end)
 
 						local useIcon = rcM.icon
 						if type(rcM.icon) == "function" then
-							useIcon = rcM.icon(nodeData, childNode)
+							useIcon = rcM.icon(nodeData, childNode, luaState)
 						end
 						if useIcon then rcOption:SetIcon(useIcon) end
 					end
@@ -554,7 +554,7 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 				continue
 			end
 
-			if v.onLoad then v.onLoad(nodeData, childNode) end
+			if v.onLoad then v.onLoad(nodeData, childNode, luaState) end
 		end
 	end
 

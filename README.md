@@ -43,8 +43,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
   - :wavy_dash: Module-system (Code refactor)
 
 ### Known issues
-- Other addons detouring timer.Create can cause issues with obtaining source
-- Timer status isn't correctly reported for SV timers
+- Other addons detouring timer.Create can cause issues with obtaining correct source
 
 ### Credits
 - [Ace Editor](https://ace.c9.io/ "Ace Editor")
