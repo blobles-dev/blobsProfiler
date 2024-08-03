@@ -446,6 +446,8 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 			nodeText = nodeKey .. ": " .. tostring(nodeValue)
 		elseif varType == "Files" then
 			nodeText = nodeValue
+		elseif varType == "Profiling.Targets" then
+			nodeText = nodeValue.name or nodeKey
 		end
 
 		childNode = useParent:AddNode(nodeText)
@@ -573,15 +575,21 @@ local function addDTreeNode(parentNode, nodeData, specialType, isRoot, varType, 
 		blobsProfiler[luaState].Profile = blobsProfiler[luaState].Profile or {}
 		
 		blobsProfiler[luaState].Profile.Raw = blobsProfiler[luaState].Profile.Raw or {}
+		blobsProfiler[luaState].Profile.Called = blobsProfiler[luaState].Profile.Called or {}
+		blobsProfiler[luaState].Profile.Results = blobsProfiler[luaState].Profile.Results or {}
 		childNode.Expander.OnChange = function(s, isChecked)
 			blobsProfiler[luaState].Profile[varType] = blobsProfiler[luaState].Profile[varType] or {}
 			
 			if isChecked then
-				blobsProfiler[luaState].Profile[varType][childNode.FunctionRef.path] = childNode.FunctionRef
-				blobsProfiler[luaState].Profile.Raw[nodeValue] = true
+				blobsProfiler[luaState].Profile[varType][tostring(nodeValue)] = childNode.FunctionRef
+				blobsProfiler[luaState].Profile.Raw[tostring(nodeValue)] = true
+				blobsProfiler[luaState].Profile.Called[tostring(nodeValue)] = blobsProfiler[luaState].Profile.Called[tostring(nodeValue)] or {}
+				blobsProfiler[luaState].Profile.Results[tostring(nodeValue)] = blobsProfiler[luaState].Profile.Results[tostring(nodeValue)] or {}
 			else
-				blobsProfiler[luaState].Profile[varType][childNode.FunctionRef.path] = nil
-				blobsProfiler[luaState].Profile.Raw[nodeValue] = false
+				blobsProfiler[luaState].Profile[varType][tostring(nodeValue)] = nil
+				blobsProfiler[luaState].Profile.Raw[tostring(nodeValue)] = falses
+				blobsProfiler[luaState].Profile.Called[tostring(nodeValue)] = blobsProfiler[luaState].Profile.Called[tostring(nodeValue)] or {}
+				blobsProfiler[luaState].Profile.Results[tostring(nodeValue)] = blobsProfiler[luaState].Profile.Results[tostring(nodeValue)] or {}
 			end
 		end
 	end
@@ -728,12 +736,6 @@ if blobsProfiler.Menu.MenuFrame && IsValid(blobsProfiler.Menu.MenuFrame) then
 	blobsProfiler.Menu.MenuFrame:Remove() -- kill on lua refresh
 end
 
---[[local function profileLog(realm, event)
-	local luaCallInfo = debug.getinfo(3, "fnS")
-	if not blobsProfiler.Client.Profile.Raw[luaCallInfo.func] then return end
-	print(event, luaCallInfo.name, luaCallInfo.func, luaCallInfo.source)
-end]]
-
 blobsProfiler.Tabs = {}
 blobsProfiler.Tabs.Client = {}
 blobsProfiler.Tabs.Server = {}
@@ -800,28 +802,6 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 	local tabMenu = vgui.Create( "DPropertySheet", blobsProfiler.Menu.MenuFrame)
 	tabMenu:Dock( FILL )
-	
-	--[[blobsProfiler.Menu.MenuFrame.ProfilerPanel = vgui.Create("DPanel", blobsProfiler.Menu.MenuFrame)
-	local profilerPanel = blobsProfiler.Menu.MenuFrame.ProfilerPanel
-	profilerPanel:Dock(RIGHT)
-	profilerPanel:DockMargin(5, 10, 0, 0)
-	profilerPanel:SetWide(250)
-
-	local stopProfiling = vgui.Create("DButton", profilerPanel)
-	stopProfiling:SetText("Stop Profiling")
-	stopProfiling:Dock(BOTTOM)
-	stopProfiling:SetTall(30)
-	stopProfiling.DoClick = function()
-		debug.sethook()
-	end
-
-	local startProfiling = vgui.Create("DButton", profilerPanel)
-	startProfiling:SetText("Start Profiling")
-	startProfiling:Dock(BOTTOM)
-	startProfiling:SetTall(30)
-	startProfiling.DoClick = function()
-		debug.sethook(function(e) profileLog("Client", e) end, "cr")
-	end]]
 	
 	local tabClient = vgui.Create("DPropertySheet", tabMenu)
 	tabMenu:AddSheet("Client", tabClient, "icon16/application.png")
