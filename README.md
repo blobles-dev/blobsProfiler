@@ -3,6 +3,8 @@ A powerful task-manager style &amp; profiling addon for garrysmod
 
 ![Preview](https://i.imgur.com/FmsdAVB.png)
 
+More screenshots can be found [here](https://github.com/blobles-dev/blobsProfiler/wiki/Media "here")
+
 ## Very early development (lacking a lot of features)
 Found an issue/bug or have an idea/suggestion? Use the [Issues](https://github.com/blobles-dev/blobsProfiler/issues "Issues") tab
 ### Overview
