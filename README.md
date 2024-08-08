@@ -57,4 +57,4 @@ For now, the all modules are currently locked away behind only a usergroup == su
 - [Meta Construct](https://github.com/Metastruct "Meta Construct")
   - GLua mode for Ace Editor
 - [Phoenixf](https://github.com/phoen1xf/ "Phoenixf")
-  - Hosting the Ace Editor glua mode & being an awesome friend <3
+  - Being an awesome friend <3

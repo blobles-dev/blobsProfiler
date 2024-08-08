@@ -113,9 +113,11 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 	content = content or [[print("Hello world!")]]
 	editorMode = editorMode or "Lua"
 	local useMode = "ace/mode/glua"
+	local useModeFile = "mode-glua"
 
 	if editorMode == "SQL" then
 		useMode = "ace/mode/sql"
+		useModeFile = "mode-sql"
 	end
 
 	dhtmlPanel:SetHTML([[
@@ -133,15 +135,12 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 			</head>
 			<body>
 				<div id="editor">]].. content ..[[</div>
-				<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.13/ace.js" type="text/javascript" charset="utf-8"></script>
-				<script src="https://cdn.hbn.gg/thirdparty/mode-glua.js" type="text/javascript"></script>
+				<script>]].. blobsProfiler.JSFileData["ace"] ..[[</script>
+				<script>]].. blobsProfiler.JSFileData[useModeFile] ..[[</script>
 				<script>
 					var editor = ace.edit("editor");
 					editor.session.setMode("]].. useMode ..[[");
 					editor.setOptions({
-					enableBasicAutocompletion: true,
-					enableSnippets: true,
-					enableLiveAutocompletion: true,
 					showLineNumbers: true,
 					tabSize: 2
 					});
@@ -1178,6 +1177,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			subPropertySheetText = " - " .. subActiveTab:GetText()
 		end
 		blobsProfiler.Menu.MenuFrame:SetTitle("blobsProfiler - " .. blobsProfiler.Menu.selectedRealm .. subPropertySheetText)
+		if not subActiveTab then return end
 
 		if blobsProfiler.Modules[subActiveTab:GetText()] and firstSubModule[subActiveTab:GetText()] then
 			if pnlNew:GetText() == "Server" and firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then

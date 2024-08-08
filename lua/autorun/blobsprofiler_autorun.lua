@@ -20,19 +20,24 @@ end
 
 MsgN("- blobsProfiler initializing files -")
 
-local function incFile(path, CL, SV)
+local function incFile(fileData)
+	local CL = fileData.CL or false
+	local SV = fileData.SV or false
+	local filePath = fileData.File or error("blobsProfiler: Failed to load file no .File provided!")
+
 	if SV && SERVER && !CL then
-		print("[blobsProfiler] SV Load: " .. path)
-		include("blobsprofiler/" .. path)
+		print("[blobsProfiler] SV Load: " .. filePath)
+		include("blobsprofiler/" .. filePath)
 	else
 		if SERVER then
-			print("[blobsProfiler] " .. (SV && "SH" || "CL") .. " DL: " .. path)
-			AddCSLuaFile("blobsprofiler/" .. path)
+			print("[blobsProfiler] " .. (SV && "SH" || "CL") .. " DL: " .. filePath)
+			AddCSLuaFile("blobsprofiler/" .. filePath)
 		end
 
 		if (SV && CL) || (CL && CLIENT) then
-			print("[blobsProfiler] " .. (SV && "SH" || "CL") .. " Load: " .. path)
-			include("blobsprofiler/" .. path)
+			print("[blobsProfiler] " .. (SV && "SH" || "CL") .. " Load: " .. filePath)
+			if CLIENT and fileData.CL_NoInclude then print("[blobsProfiler] " .. (SV && "SH" || "CL") .. " CL_NoInclude: " .. filePath) return end
+			include("blobsprofiler/" .. filePath)
 		end
 	end
 end
@@ -77,12 +82,12 @@ blobsProfiler.FileList = {
 	{
 		File = "server/sv_blobsprofiler.lua",
 		SV = true,
-	},
+	}
 }
 
 blobsProfiler.LoadFiles = function()
-	for _, fileList in ipairs(blobsProfiler.FileList) do
-		incFile(fileList.File, fileList.CL, fileList.SV)
+	for _, fileData in ipairs(blobsProfiler.FileList) do
+		incFile(fileData)
 	end
 end
 
@@ -102,3 +107,34 @@ blobsProfiler.LoadModules = function()
 end
 
 blobsProfiler.LoadModules()
+
+local JSFiles = {
+    { FileName = "ace", Parts = 8 },
+    { FileName = "mode-sql" },
+	{ FileName = "mode-glua", Parts = 4}
+}
+
+blobsProfiler.JSFileData = blobsProfiler.JSFileData or {}
+
+blobsProfiler.LoadJSFiles = function()
+    for _, JSFile in ipairs(JSFiles) do
+        local basePath = "blobsProfiler/client/js/" .. JSFile.FileName
+        local partCount = JSFile.Parts or 1
+        local parts = {}
+
+        for i = 1, partCount do
+            local filePath = basePath .. (partCount > 1 and i or "") .. ".js.lua"
+            if SERVER then
+                AddCSLuaFile(filePath)
+            else
+                parts[i] = include(filePath)
+            end
+        end
+
+        if not SERVER then
+            blobsProfiler.JSFileData[JSFile.FileName] = table.concat(parts)
+        end
+    end
+end
+
+blobsProfiler.LoadJSFiles()
