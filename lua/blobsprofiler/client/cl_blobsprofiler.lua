@@ -108,7 +108,7 @@ blobsProfiler.viewPropertiesPopup = function(title, data, width, height)
 	return propertiesFrame
 end
 
-blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode)
+blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode, readOnly)
 	local dhtmlPanel = vgui.Create("DHTML", parentPanel)
 	content = content or [[print("Hello world!")]]
 	editorMode = editorMode or "Lua"
@@ -141,8 +141,9 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 					var editor = ace.edit("editor");
 					editor.session.setMode("]].. useMode ..[[");
 					editor.setOptions({
-					showLineNumbers: true,
-					tabSize: 2
+						showLineNumbers: true,
+						tabSize: 2,
+						readOnly: ]].. tostring(tobool(readOnly)) --[[ really? ]] ..[[
 					});
 
 					function getEditorValue() {
@@ -174,7 +175,7 @@ local function popupSourceView(sourceContent, frameTitle)
 	sourceFrame:Center()
 	sourceFrame:MakePopup()
 
-	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent)
+	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent, "Lua", true)
 	sourcePanel:Dock(FILL)
 
 	sourcePanel.OnRemove = function()
