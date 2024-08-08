@@ -108,7 +108,7 @@ blobsProfiler.viewPropertiesPopup = function(title, data, width, height)
 	return propertiesFrame
 end
 
-blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode, readOnly)
+blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode, readOnly, startLine)
 	local dhtmlPanel = vgui.Create("DHTML", parentPanel)
 	content = content or [[print("Hello world!")]]
 	editorMode = editorMode or "Lua"
@@ -143,7 +143,8 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 					editor.setOptions({
 						showLineNumbers: true,
 						tabSize: 2,
-						readOnly: ]].. tostring(tobool(readOnly)) --[[ really? ]] ..[[
+						readOnly: ]].. tostring(tobool(readOnly)) --[[ really? ]] ..[[,
+						firstLineNumber: ]].. (startLine or 1 )..[[
 					});
 
 					function getEditorValue() {
@@ -175,7 +176,11 @@ local function popupSourceView(sourceContent, frameTitle)
 	sourceFrame:Center()
 	sourceFrame:MakePopup()
 
-	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent, "Lua", true)
+	local startLine, endLine = frameTitle:match("Lines%: (%d+)%-(%d+)")
+	startLine = tonumber(startLine)
+	endLine = tonumber(endLine)
+
+	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent, "Lua", true, startLine)
 	sourcePanel:Dock(FILL)
 
 	sourcePanel.OnRemove = function()
@@ -228,8 +233,8 @@ net.Receive("blobsProfiler:sendSourceChunk", function()
     end
 
     if allChunksReceived then
-		local splitRequest = string.Explode(":", requestId)
-		popupSourceView(combinedSource, splitRequest[1])
+		--local splitRequest = string.Explode(":", requestId)
+		popupSourceView(combinedSource, requestId)
 
         receivedSource[requestId] = nil  -- Clean up the request data
     end

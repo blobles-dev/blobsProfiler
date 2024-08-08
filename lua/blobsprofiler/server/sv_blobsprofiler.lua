@@ -59,7 +59,7 @@ net.Receive("blobsProfiler:requestSource", function(l, ply)
     findFile:Close()
 
     local combinedSource = table.concat(fileContent)
-    local requestID = filePath .. startLine .. ":" .. endLine  -- Generate request ID
+    local requestID = string.format("View source: %s (Lines: %i-%i)", filePath, startLine, (endLine == 0 and currentLine) or endLine)  -- Generate request ID
     SendChunkedString(ply, requestID, combinedSource)
 end)
 
