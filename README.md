@@ -22,19 +22,19 @@ For now, the all modules are currently locked away behind only a usergroup == su
 ##### Modules
 | Module | Client | Server  |
 | ------------ | ------------ | ------------ |
-| _G explorer | :white_check_mark: | :white_check_mark: |
-| Lua execute | :white_check_mark: | :white_check_mark: |
-| Hooks | :white_check_mark: | :white_check_mark: |
-| ConCommands  | :white_check_mark: | :white_check_mark: |
+| [Globals](https://github.com/blobles-dev/blobsProfiler/wiki/Media#profiling-module-wip) | :white_check_mark: | :white_check_mark: |
+| [Lua execute](https://github.com/blobles-dev/blobsProfiler/wiki/Media#execute-lua-submodule) | :white_check_mark: | :white_check_mark: |
+| [Hooks](https://github.com/blobles-dev/blobsProfiler/wiki/Media#hooks-module) | :white_check_mark: | :white_check_mark: |
+| [ConCommands](https://github.com/blobles-dev/blobsProfiler/wiki/Media#concommands-module)  | :white_check_mark: | :white_check_mark: |
 | Convar | :x: | :x: |
-| Files | :white_check_mark: | :white_check_mark: |
-| Network (Receivers) | :white_check_mark: | :white_check_mark: |
-| Timers | :white_check_mark: | :white_check_mark: |
-| Profiling | :x: | :x: |
-| SQLite Schema | :white_check_mark: | :white_check_mark: |
-| SQLite Data | :white_check_mark: | :white_check_mark: |
-| SQLite Execute | :white_check_mark: | :white_check_mark: |
-| Errors | :white_check_mark: | :white_check_mark: |
+| [Files](https://github.com/blobles-dev/blobsProfiler/wiki/Media#files-module) | :white_check_mark: | :white_check_mark: |
+| [Network (Receivers)](https://github.com/blobles-dev/blobsProfiler/wiki/Media#network-module) | :white_check_mark: | :white_check_mark: |
+| [Timers](https://github.com/blobles-dev/blobsProfiler/wiki/Media#timers-module) | :white_check_mark: | :white_check_mark: |
+| [Profiling](https://github.com/blobles-dev/blobsProfiler/wiki/Media#profiling-module-wip) | :x: | :x: |
+| [SQLite Schema](https://github.com/blobles-dev/blobsProfiler/wiki/Media#schema-sqlite-submodule) | :white_check_mark: | :white_check_mark: |
+| [SQLite Data](https://github.com/blobles-dev/blobsProfiler/wiki/Media#data-sqlite-submodule) | :white_check_mark: | :white_check_mark: |
+| [SQLite Execute](https://github.com/blobles-dev/blobsProfiler/wiki/Media#execute-sqlite-submodule) | :white_check_mark: | :white_check_mark: |
+| [Errors](https://github.com/blobles-dev/blobsProfiler/wiki/Media#errors-module) | :white_check_mark: | :white_check_mark: |
 | Remote SQL Schema | :x: | :x: |
 | Remote SQL Data | :x: | :x: |
 | Remote SQL Execute | :x: | :x: |
