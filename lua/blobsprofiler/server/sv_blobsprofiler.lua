@@ -5,7 +5,7 @@ util.AddNetworkString("blobsProfiler:sendSourceChunk")
 
 util.AddNetworkString("blobsProfiler:requestData")
 
-local function SendChunkedString(ply, requestID, largeString)
+local function SendChunkedString(ply, requestID, largeString, highlightLine)
     local chunkSize = 30000  -- If changed, don't forget to change on the client!
     local totalLength = #largeString
 
@@ -15,6 +15,7 @@ local function SendChunkedString(ply, requestID, largeString)
         net.WriteString(requestID)
         net.WriteUInt(i, 32)
         net.WriteString(chunk)
+        net.WriteUInt(highlightLine or 0, 16) -- ugh
         net.Send(ply)
     end
 end
@@ -25,6 +26,13 @@ net.Receive("blobsProfiler:requestSource", function(l, ply)
     local filePath = net.ReadString()
     local startLine = net.ReadUInt(16)
     local endLine = net.ReadUInt(16)
+
+    local highlightLine
+    if startLine ~= 0 and endLine == 0 then
+        highlightLine = startLine
+        startLine = 0
+        endLine = 0
+    end
 
     if startLine < 0 or endLine < 0 or startLine > endLine then return end
 
@@ -60,7 +68,7 @@ net.Receive("blobsProfiler:requestSource", function(l, ply)
 
     local combinedSource = table.concat(fileContent)
     local requestID = string.format("View source: %s (Lines: %i-%i)", filePath, startLine, (endLine == 0 and currentLine) or endLine)  -- Generate request ID
-    SendChunkedString(ply, requestID, combinedSource)
+    SendChunkedString(ply, requestID, combinedSource, highlightLine)
 end)
 
 local transmissionStates = {}

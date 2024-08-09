@@ -108,7 +108,7 @@ blobsProfiler.viewPropertiesPopup = function(title, data, width, height)
 	return propertiesFrame
 end
 
-blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode, readOnly, startLine)
+blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode, readOnly, startLine, highlightLine)
 	local dhtmlPanel = vgui.Create("DHTML", parentPanel)
 	content = content or [[print("Hello world!")]]
 	editorMode = editorMode or "Lua"
@@ -120,6 +120,28 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 		useModeFile = "mode-sql"
 	end
 
+	local highlightJS = ""
+	if highlightLine and highlightLine ~= 0 then
+		highlightJS = [[
+			var lineNumber = ]].. highlightLine - 1 ..[[;
+			
+			var Range = ace.require("ace/range").Range;
+			editor.session.addMarker(new Range(lineNumber, 0, lineNumber, 1), "errorHighlight", "fullLine");
+
+			editor.session.setAnnotations([{
+				row: lineNumber,
+				column: 0,
+				//text: "Error: ", // TODO: Pass through error message?
+				type: "error"
+			}]);
+
+			setTimeout(function() {
+				editor.scrollToLine(lineNumber, true, true, function() {});
+				editor.gotoLine(lineNumber);
+			}, 100); // murder me in my sleep
+		]]
+	end
+
 	dhtmlPanel:SetHTML([[
 		<!DOCTYPE html>
 		<html lang="en">
@@ -128,8 +150,13 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 				<title>blobsProfiler: Lua Execution</title>
 				<style type="text/css" media="screen">
 					#editor { 
-					height: 400px; 
-					width: 100%;
+						height: 400px; 
+						width: 100%;
+					}
+					.errorHighlight {
+						position: absolute;
+						background-color: rgba(255, 0, 0, 0.3);
+						z-index: 20;
 					}
 				</style>
 			</head>
@@ -159,6 +186,8 @@ blobsProfiler.generateAceEditorPanel = function(parentPanel, content, editorMode
 						},
 						readOnly: true // Disable this command in read-only mode
 					});
+
+					]].. highlightJS ..[[
 				</script>
 			</body>
 		</html>
@@ -169,7 +198,8 @@ end
 
 blobsProfiler.sourceFrames = {}
 
-local function popupSourceView(sourceContent, frameTitle)
+local function popupSourceView(sourceContent, frameTitle, highlightLine)
+	print("highlightLine", highlightLine)
 	local sourceFrame = vgui.Create("DFrame")
 	sourceFrame:SetSize(500,500)
 	sourceFrame:SetTitle(frameTitle or "View source")
@@ -180,7 +210,7 @@ local function popupSourceView(sourceContent, frameTitle)
 	startLine = tonumber(startLine)
 	endLine = tonumber(endLine)
 
-	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent, "Lua", true, startLine)
+	local sourcePanel = blobsProfiler.generateAceEditorPanel(sourceFrame, sourceContent, "Lua", true, startLine, highlightLine)
 	sourcePanel:Dock(FILL)
 
 	sourcePanel.OnRemove = function()
@@ -207,6 +237,7 @@ net.Receive("blobsProfiler:sendSourceChunk", function()
     local requestId = net.ReadString()
     local startPos = net.ReadUInt(32)
     local chunk = net.ReadString()
+	local highlightLine = net.ReadUInt(16)
 
     if not receivedSource[requestId] then
         receivedSource[requestId] = {
@@ -234,7 +265,7 @@ net.Receive("blobsProfiler:sendSourceChunk", function()
 
     if allChunksReceived then
 		--local splitRequest = string.Explode(":", requestId)
-		popupSourceView(combinedSource, requestId)
+		popupSourceView(combinedSource, requestId, highlightLine)
 
         receivedSource[requestId] = nil  -- Clean up the request data
     end
@@ -393,6 +424,24 @@ blobsProfiler.Menu.RCFunctions_DEFAULT = {
 				end
 				
 				local popupView = blobsProfiler.viewPropertiesPopup("View Function: " .. ref.key, propertiesData)
+			end,
+			icon = "icon16/magnifier.png"
+		}
+	},
+	["file"] = {
+		{
+			name = "View source",
+			func = function(ref, node, luaState)
+				if not string.EndsWith(ref.value.Source, ".lua") then
+					Derma_Message("Invalid file source: ".. ref.value.Source .."\nOnly Lua files can be read!", "Function view source", "OK")
+					return
+				end
+
+				net.Start("blobsProfiler:requestSource")
+					net.WriteString(ref.value.Source)
+					net.WriteUInt(ref.value.Line, 16)
+					net.WriteUInt(0, 16)
+				net.SendToServer()
 			end,
 			icon = "icon16/magnifier.png"
 		}
@@ -1214,6 +1263,10 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		local getSheet = pnlNew:GetPanel()
 		if getSheet.OnActiveTabChanged then
 			getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
+		end
+
+		if moduleTable.OnOpen then
+			moduleTable.OnOpen("Client", moduleTable.ClientTab)
 		end
 	end
 

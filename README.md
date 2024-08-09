@@ -34,6 +34,7 @@ For now, the all modules are currently locked away behind only a usergroup == su
 | SQLite Schema | :white_check_mark: | :white_check_mark: |
 | SQLite Data | :white_check_mark: | :white_check_mark: |
 | SQLite Execute | :white_check_mark: | :white_check_mark: |
+| Errors | :white_check_mark: | :white_check_mark: |
 | Remote SQL Schema | :x: | :x: |
 | Remote SQL Data | :x: | :x: |
 | Remote SQL Execute | :x: | :x: |

@@ -162,7 +162,7 @@ blobsProfiler.RegisterSubModule("Lua", "Execute", {
             end
 
             if luaState == "Client" then
-                RunString(value)
+                RunString(value, "blobsprofiler:lua.execute")
             elseif luaState == "Server" then
                 net.Start("blobsProfiler:sendLua")
                     net.WriteString(value) -- TODO: allow bigger strings? no biggy for now, needs to be done securely!
@@ -331,7 +331,7 @@ local sum = addNumbers(5, 5)]])
                     local lcStart = SysTime()
                     for i=1, numIterations do
                         local ciStart = SysTime()
-                        RunString(leftCodeContent)
+                        RunString(leftCodeContent, "blobsprofiler:lua.versus_LEFT")
                         local ciTotal = SysTime() - ciStart
 
                         if not lcMax or (ciTotal > lcMax) then lcMax = ciTotal end
@@ -342,7 +342,7 @@ local sum = addNumbers(5, 5)]])
                     local rcStart = SysTime()
                     for i=1, numIterations do
                         local ciStart = SysTime()
-                        RunString(rightCodeContent)
+                        RunString(rightCodeContent, "blobsprofiler:lua.versus_RIGHT")
                         local ciTotal = SysTime() - ciStart
 
                         if not rcMax or (ciTotal > rcMax) then rcMax = ciTotal end
@@ -381,7 +381,7 @@ net.Receive("blobsProfiler:sendLua", function(l, ply)
     blobsProfiler.Log(blobsProfiler.L_LOG, ply:Name() .. " (".. ply:SteamID64() ..") sent Lua to the server:")
     blobsProfiler.Log(blobsProfiler.L_LOG, luaRun)
 
-    RunString(luaRun)
+    RunString(luaRun, "blobsprofiler:lua.execute")
 end)
 
 
@@ -400,7 +400,7 @@ net.Receive("blobsProfiler:sendLua_versus", function(l, ply)
             local lcStart = SysTime()
             for i=1, numIterations do
                 local ciStart = SysTime()
-                RunString(luaRunL)
+                RunString(luaRunL, "blobsprofiler:lua.versus_LEFT")
                 local ciTotal = SysTime() - ciStart
 
                 if not lcMax or (ciTotal > lcMax) then lcMax = ciTotal end
@@ -411,7 +411,7 @@ net.Receive("blobsProfiler:sendLua_versus", function(l, ply)
             local rcStart = SysTime()
             for i=1, numIterations do
                 local ciStart = SysTime()
-                RunString(luaRunR)
+                RunString(luaRunR, "blobsprofiler:lua.versus_RIGHT")
                 local ciTotal = SysTime() - ciStart
 
                 if not rcMax or (ciTotal > rcMax) then rcMax = ciTotal end
