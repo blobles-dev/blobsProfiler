@@ -1093,7 +1093,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 					if not blobsProfiler[luaState][moduleName] or not blobsProfiler[luaState][moduleName][pnlNew:GetText()] then
 						if subModuleTable.UpdateRealmData then
-							subModuleTable:UpdateRealmData(luaState)
+							subModuleTable.UpdateRealmData(luaState)
 							if luaState == "Server" then
 								subModuleTable.retrievingData = true
 							end
@@ -1238,7 +1238,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			if pnlNew:GetText() == "Server" and firstSubModule[subActiveTab:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[subActiveTab:GetText()][firstSubModule[subActiveTab:GetText()].name] then return end
 				firstSubModule[subActiveTab:GetText()].data.retrievingData = true
-				firstSubModule[subActiveTab:GetText()].data:UpdateRealmData(pnlNew:GetText())
+				firstSubModule[subActiveTab:GetText()].data.UpdateRealmData(pnlNew:GetText())
 			end
 		end
 
@@ -1256,7 +1256,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 
 		if not blobsProfiler.Client[pnlNew:GetText()] then
 			if moduleTable.UpdateRealmData then
-				moduleTable:UpdateRealmData("Client")
+				moduleTable.UpdateRealmData("Client")
 			end
 		end
 
@@ -1277,7 +1277,7 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 		if not blobsProfiler.Server[pnlNew:GetText()] then
 			if moduleTable.UpdateRealmData then
 				moduleTable.retrievingData = true
-				moduleTable:UpdateRealmData("Server")
+				moduleTable.UpdateRealmData("Server")
 			end
 		end
 
@@ -1285,13 +1285,17 @@ concommand.Add("blobsprofiler", function(ply, cmd, args, argStr)
 			if firstSubModule[pnlNew:GetText()].data.UpdateRealmData then
 				if blobsProfiler.Server[pnlNew:GetText()][firstSubModule[pnlNew:GetText()].name] then return end
 				firstSubModule[pnlNew:GetText()].data.retrievingData = true
-				firstSubModule[pnlNew:GetText()].data:UpdateRealmData("Server")
+				firstSubModule[pnlNew:GetText()].data.UpdateRealmData("Server")
 			end
 		end
 
 		local getSheet = pnlNew:GetPanel()
 		if getSheet.OnActiveTabChanged then
 			getSheet:OnActiveTabChanged(nil, getSheet:GetActiveTab())
+		end
+
+		if moduleTable.OnOpen then
+			moduleTable.OnOpen("Server", moduleTable.ServerTab)
 		end
 	end
 
